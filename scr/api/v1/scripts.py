@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from typing import List
-from scr.core.di import get_script_service, get_current_user
+from scr.core.di import get_script_service
+from scr.core.tools import get_current_user
 from scr.schemas.execution import ExecutionResponse
 from scr.schemas.script import ScriptCreate, ScriptUpdate, ScriptResponse
 from scr.services.script import ScriptService
@@ -11,6 +12,7 @@ router = APIRouter(prefix="/scripts", tags=["scripts"])
 @router.post("/", response_model=ScriptResponse, status_code=201)
 async def create_script(
     script_data: ScriptCreate,
+    background_tasks: BackgroundTasks,
     current_user: UserModel = Depends(get_current_user),
     script_service: ScriptService = Depends(get_script_service)
 ):

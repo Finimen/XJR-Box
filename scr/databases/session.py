@@ -1,8 +1,8 @@
 import os
-from scr.core.config import Settings
+from scr.core.config import settings
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
-DATABASE_URL = Settings.DATABASE_URL
+DATABASE_URL = settings.DATABASE_URL
 
 engine = create_async_engine(
     url = DATABASE_URL,

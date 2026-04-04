@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 class Execution(Base):
     __tablename__ = "executions"
     
-    id = Column(__name_pos=Integer, primary_key=True)
+    id = Column(Integer, primary_key=True)
     script_id = Column(Integer, ForeignKey("scripts.id"), nullable=False)
     
     status = Column(String(50))  # "running", "success", "failed", "timeout"

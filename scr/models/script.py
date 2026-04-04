@@ -8,17 +8,17 @@ class Script(Base):
     __tablename__ = "scripts"
 
     id = Column(Integer, primary_key = True)
-    user_id = Column(Integer, ForeignKey("user.id"), nullable = False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable = False)
     name = Column(String(255), nullable = False)
     description = Column(String(500))
 
     code = Column(Text, nullable = False)
 
-    shedule = Column(String(255))
+    schedule  = Column(String(255))
     is_active = Column(Boolean, default = True)
 
     created_at = Column(DateTime, default = datetime.utcnow())
     updated_at = Column(DateTime, default = datetime.utcnow(), onupdate = datetime.utcnow())
     last_run_at = Column(DateTime, nullable = True)
 
-    user = relationship("UserModel", )
+    user = relationship("UserModel", back_populates="scripts")

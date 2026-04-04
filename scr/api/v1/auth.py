@@ -36,7 +36,7 @@ async def login(user_data: UserLogin, auth_service: AuthService = Depends(get_au
 
     return token
 
-@router.post("/logout", response_model=JSONResponse)
+@router.post("/logout")
 async def logout():
     return JSONResponse(
         status_code=200,

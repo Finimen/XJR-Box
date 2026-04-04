@@ -57,6 +57,49 @@ class AuthService:
         token = self._create_access_token({"sub": user["username"]})
         return True, token, None
     
+    async def get_current_user(self, token: str) -> Tuple[bool, Optional[UserModel], Optional[str]]:
+        """
+        Получение текущего пользователя из токена.
+        Returns: (success, user, error_message)
+        """
+        try:
+            # 1. Проверяем JWT
+            payload = jwt.decode(
+                token, 
+                self.config.JWT_SECRET_KEY, 
+                algorithms=[self.config.JWT_ALGORITHM]
+            )
+            
+            # 2. Проверяем, не в черном ли списке токен
+            if await self.redis_service.is_blacklisted(token):
+                return False, None, "Token has been revoked"
+            
+            # 3. Достаем username из payload
+            username = payload.get("sub")
+            user_id = payload.get("user_id")
+            
+            if not username or not user_id:
+                return False, None, "Invalid token payload"
+            
+            # 4. Проверяем, совпадает ли токен с сохраненным в Redis
+            is_valid = await self.redis_service.is_token_valid(user_id, token)
+            if not is_valid:
+                return False, None, "Session expired, please login again"
+            
+            # 5. Получаем пользователя из БД
+            user = await self.repository.get_user_by_username(username)
+            if not user:
+                return False, None, "User not found"
+            
+            return True, user, None
+            
+        except jwt.ExpiredSignatureError:
+            return False, None, "Token expired"
+        except jwt.InvalidTokenError as e:
+            return False, None, f"Invalid token: {str(e)}"
+        except Exception as e:
+            return False, None, f"Authentication error: {str(e)}"
+    
     def _create_access_token(self, data: dict) -> str:
         expire = datetime.utcnow() + timedelta(minutes=self.config.ACCESS_TOKEN_EXPIRE_MINUTES)
         data.update({"exp": expire})
