@@ -22,3 +22,4 @@ class Script(Base):
     last_run_at = Column(DateTime, nullable = True)
 
     user = relationship("UserModel", back_populates="scripts")
+    executions = relationship("Execution", back_populates="script", cascade="all, delete-orphan")

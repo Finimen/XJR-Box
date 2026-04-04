@@ -7,11 +7,13 @@ from scr.core.config import Settings
 from scr.models.user_model import UserModel
 from scr.repositories.user_repository import UserRepository
 from scr.services.email import EmailService
+from scr.services.redis import RedisService
 
 class AuthService:
-    def __init__(self, repository: UserRepository, email_service: EmailService, config: Settings):
+    def __init__(self, repository: UserRepository, email_service: EmailService, redis_service: RedisService, config: Settings):
         self.repository = repository
         self.email_service = email_service
+        self.redis_service = redis_service  # 👈 Добавить!
         self.config = config
     
     async def register(self, username: str, email: str, password: str) -> Tuple[bool, Optional[dict], Optional[str]]:
@@ -39,22 +41,24 @@ class AuthService:
         
         return True, user, None
     
-    async def login(self, username: str, password: str) -> Tuple[bool, Optional[str], Optional[str]]:
+    async def login(self, username: str, password: str) -> Tuple[bool, str, Optional[str]]:
         user = await self.repository.get_user_by_username(username)
         
         if not user:
-            return False, None, "Invalid credentials"
-        
-        if not user.get("is_verified"):
-            return False, None, "Please verify your email"
+            return False, "", "Invalid credentials"
         
         password_bytes = password.encode('utf-8')
-        hash_bytes = user["password_hash"].encode('utf-8')
+        hash_bytes = user.password_hash.encode('utf-8')
         
         if not bcrypt.checkpw(password_bytes, hash_bytes):
-            return False, None, "Invalid credentials"
+            return False, "", "Invalid credentials"
         
-        token = self._create_access_token({"sub": user["username"]})
+        token = self._create_access_token({"sub": user.username, "user_id" : user.id})
+
+        if self.redis_service:
+            expire_seconds = self.config.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            await self.redis_service.store_user_token(user.id, token, expire_seconds)
+
         return True, token, None
     
     async def get_current_user(self, token: str) -> Tuple[bool, Optional[UserModel], Optional[str]]:
@@ -63,30 +67,25 @@ class AuthService:
         Returns: (success, user, error_message)
         """
         try:
-            # 1. Проверяем JWT
             payload = jwt.decode(
                 token, 
                 self.config.JWT_SECRET_KEY, 
                 algorithms=[self.config.JWT_ALGORITHM]
             )
             
-            # 2. Проверяем, не в черном ли списке токен
             if await self.redis_service.is_blacklisted(token):
                 return False, None, "Token has been revoked"
             
-            # 3. Достаем username из payload
             username = payload.get("sub")
             user_id = payload.get("user_id")
             
             if not username or not user_id:
                 return False, None, "Invalid token payload"
             
-            # 4. Проверяем, совпадает ли токен с сохраненным в Redis
             is_valid = await self.redis_service.is_token_valid(user_id, token)
             if not is_valid:
                 return False, None, "Session expired, please login again"
             
-            # 5. Получаем пользователя из БД
             user = await self.repository.get_user_by_username(username)
             if not user:
                 return False, None, "User not found"

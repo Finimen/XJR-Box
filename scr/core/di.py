@@ -2,7 +2,7 @@ from mmap import ACCESS_COPY
 from typing import AsyncGenerator, Optional
 
 from fastapi import Depends
-from scr.core.config import Settings
+from scr.core.config import Settings, settings
 from scr.repositories.scripts_repository import ScriptRepository
 from scr.repositories.user_repository import UserRepository
 from scr.services.auth import AuthService
@@ -45,11 +45,11 @@ async def close_redis_connection():
         await _redis_service.disconnect()
 
 async def get_auth_service(
-        user_repository: UserRepository = Depends(get_user_repository),
-        config : Settings = Depends(get_config),
-        email_service: EmailService = Depends(get_email_service)
-          ) -> AuthService:
-    return AuthService(user_repository, email_service, config)
+    user_repository: UserRepository = Depends(get_user_repository),
+    email_service: EmailService = Depends(get_email_service),
+    redis_service: RedisService = Depends(get_redis_service),  
+) -> AuthService:
+    return AuthService(user_repository, email_service, redis_service, settings)
 
 async def get_script_repository(
     db: AsyncSession = Depends(get_db)

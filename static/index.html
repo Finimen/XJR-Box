@@ -1,3 +1,68 @@
-<html>
-    
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automation Cloud ☁️</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>☁️ Automation Cloud</h1>
+            <div id="authButtons" class="auth-buttons">
+                <button onclick="showLoginForm()">Login</button>
+                <button onclick="showRegisterForm()">Register</button>
+            </div>
+            <div id="userInfo" class="user-info" style="display:none;">
+                <span id="username"></span>
+                <button onclick="logout()">Logout</button>
+            </div>
+        </header>
+
+        <!-- Форма логина -->
+        <div id="loginForm" class="form-modal" style="display:none;">
+            <div class="form-content">
+                <h2>Login</h2>
+                <input type="text" id="loginUsername" placeholder="Username">
+                <input type="password" id="loginPassword" placeholder="Password">
+                <button onclick="login()">Login</button>
+                <button onclick="hideLoginForm()">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Форма регистрации -->
+        <div id="registerForm" class="form-modal" style="display:none;">
+            <div class="form-content">
+                <h2>Register</h2>
+                <input type="text" id="regUsername" placeholder="Username">
+                <input type="email" id="regEmail" placeholder="Email">
+                <input type="password" id="regPassword" placeholder="Password">
+                <button onclick="register()">Register</button>
+                <button onclick="hideRegisterForm()">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Основной контент (виден только после логина) -->
+        <div id="mainContent" style="display:none;">
+            <!-- Форма создания скрипта -->
+            <div class="create-script">
+                <h2>📝 Create New Script</h2>
+                <input type="text" id="scriptName" placeholder="Script name">
+                <textarea id="scriptCode" placeholder="Python code" rows="10"></textarea>
+                <input type="text" id="scriptSchedule" placeholder="Schedule (e.g., */5 * * * * or leave empty)">
+                <button onclick="createScript()">Create Script</button>
+            </div>
+
+            <!-- Список скриптов -->
+            <div class="scripts-list">
+                <h2>📋 Your Scripts</h2>
+                <div id="scriptsContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
 </html>

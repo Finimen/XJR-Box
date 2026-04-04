@@ -187,7 +187,6 @@ class ScriptRepository:
         user_id: int, 
         limit: int = 50
     ) -> List[Execution]:
-        """Получить историю запусков скрипта (с проверкой прав)"""
         logger.info(f"getting executions for script {script_id}")
         
         script = await self.get_script(script_id, user_id)
@@ -205,7 +204,6 @@ class ScriptRepository:
         return list(result.scalars().all())
     
     async def get_execution(self, execution_id: int, user_id: int) -> Optional[Execution]:
-        """Получить запись о выполнении (с проверкой прав через скрипт)"""
         query = (
             select(Execution)
             .join(Script, Execution.script_id == Script.id)

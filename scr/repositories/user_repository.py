@@ -20,7 +20,7 @@ class UserRepository:
         self.logger.info(f"getting user by username: {username}")
 
         try:
-            query = select(UserModel).where(UserModel.name == username)
+            query = select(UserModel).where(UserModel.username == username)
             result = await self.db.execute(query)
             user_model = result.scalar_one_or_none()
 
@@ -59,14 +59,14 @@ class UserRepository:
             raise
     
     async def create_user(self, user_model: UserModel) -> UserModel:
-        self.logger.info(f"creating user: {user_model.name}")
+        self.logger.info(f"creating user: {user_model.username}")
 
         try:
             self.db.add(user_model)
             await self.db.commit()
             await self.db.refresh(user_model)
 
-            self.logger.info(f"user created: {user_model.name}")
+            self.logger.info(f"user created: {user_model.username}")
             return user_model
         
         except Exception as e:
@@ -75,7 +75,7 @@ class UserRepository:
             raise
 
     async def update_user(self, user_model: UserModel) -> UserModel:
-        self.logger.info(f"updating user: {user_model.name}")
+        self.logger.info(f"updating user: {user_model.username}")
 
         try:
             await self.db.commit()
@@ -132,7 +132,7 @@ class UserRepository:
         self.logger.info(f"deleting user: {user_model}")
 
         try:
-            query = delete(UserModel).where(UserModel.name == user_model.name)
+            query = delete(UserModel).where(UserModel.username == user_model.username)
             result = await self.db.execute(query)
             await self.db.commit()
 

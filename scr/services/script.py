@@ -6,11 +6,12 @@ from typing import Optional, List, Dict, Any
 import asyncio
 from scr.models.script import Script
 from scr.repositories.scripts_repository import ScriptRepository
+from scr.services.redis import RedisService
 
 class ScriptService:
     def __init__(self, script_repo: ScriptRepository):
         self.script_repo = script_repo
-    
+        
     async def create_script(self, user_id: int, name: str, code: str, description: Optional[str], schedule: Optional[str]) -> Script:
         return await self.script_repo.create_script(
             user_id=user_id,
@@ -86,3 +87,19 @@ class ScriptService:
         finally:
             if 'temp_path' in locals():
                 Path(temp_path).unlink(missing_ok=True)
+
+    async def get_user_scripts(self, user_id: int, skip: int = 0, limit: int = 100) -> List[Script]:
+        return await self.script_repo.get_user_scripts(user_id, skip, limit)
+    
+    async def get_script(self, script_id: int, user_id: int) -> Optional[Script]:
+        return await self.script_repo.get_script(script_id, user_id)
+    
+    async def update_script(self, script_id: int, user_id: int, update_data: dict) -> Optional[Script]:
+        return await self.script_repo.update_script(script_id, user_id, update_data)
+    
+    async def delete_script(self, script_id: int, user_id: int) -> bool:
+        return await self.script_repo.delete_script(script_id, user_id)
+    
+    async def get_script_executions(self, script_id: int, user_id: int, limit: int = 50) -> List[Execution]:
+        return await self.script_repo.get_script_executions(script_id, user_id, limit)
+    

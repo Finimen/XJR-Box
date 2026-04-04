@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from scr.databases.init_db import init_db
 from scr.api.v1.auth import router as auth_router
+from scr.api.v1.scripts import router as script_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,6 +42,8 @@ app = FastAPI(title="jxr-box", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(auth_router)
+app.include_router(script_router)
+
 app.add_middleware(
     middleware_class=CORSMiddleware,
     allow_origins=["*"],

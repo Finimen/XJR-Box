@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, EmailStr, Field
 
 class UserLogin(BaseModel):
@@ -7,11 +9,13 @@ class UserLogin(BaseModel):
 class UserRegister(BaseModel):
     username : str = Field(..., min_length=3, max_length=25)
     password : str
-    email : str = Field(..., min_length=5)
+    email : EmailStr = Field(..., min_length=5)
 
-class UserResponce(BaseModel):
-    name: str = Field(..., min_length=3, max_length=25)
+class UserResponse(BaseModel):
+    id: int
+    username: str = Field(..., min_length=3, max_length=25)
     email: EmailStr
+    created_at: datetime
 
     class Config:
         from_attributes = True
