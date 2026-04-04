@@ -1,4 +1,3 @@
-
 from contextlib import asynccontextmanager
 import logging
 import os
@@ -10,6 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from scr.databases.init_db import init_db
+from scr.api.v1.auth import router as auth_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,6 +31,7 @@ async def lifespan(app: FastAPI):
     yield
 
     logger.info("shutting down gracefully")
+    from scr.databases.session import engine
     await engine.dispose()
     logger.info("connection closed")
 
@@ -59,5 +61,5 @@ async def not_found_handler(reqest: Request, exc: HTTPException):
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT"))
+    port = int(os.environ.get("PORT", "8000"))
     uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
