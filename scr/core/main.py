@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 import logging
 import os
 
+from scr.core.config import settings
 from httpx import request
 
 from fastapi import FastAPI, HTTPException, Request
@@ -62,4 +63,4 @@ async def not_found_handler(reqest: Request, exc: HTTPException):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", "8000"))
-    uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
+    uvicorn.run(app, host=settings.HOST, port=settings.PORT, reload=settings.DEBUG)

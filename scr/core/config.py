@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "Piano Site"
     DEBUG: bool = False
     PORT: int = 8000
+    HOST: str = "0.0.0.0"
     
     DATABASE_URL: str = "sqlite+aiosqlite:///./piano.db"
     
@@ -28,13 +29,15 @@ class Settings(BaseSettings):
     
     CORS_ORIGINS: list[str] = ["*"]
     
-    REDIS_URL: Optional[str] = None
+    REDIS_URL: str = "redis://localhost:6379/0"
     
     model_config = SettingsConfigDict(
         env_file=".env",           
         env_file_encoding="utf-8",
         case_sensitive=True
     )
+
+settings = Settings()
 
 """
 # .env

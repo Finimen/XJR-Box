@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import cast
 
 from sqlalchemy import Column, DateTime, Integer, String
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base, relationship
 
 
 Base = declarative_base()
@@ -15,6 +15,8 @@ class UserModel(Base):
     password_hash = Column(String(200), nullable = False)
     email = Column(String(200), nullable = False, unique = True)
     created_at = Column(DateTime, default = datetime.utcnow())
+
+    scripts = relationship("Script", back_populates="user", cascade="all, delete-orphan")
 
     @property
     def get_id(self) -> int:
