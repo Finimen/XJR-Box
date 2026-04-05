@@ -643,3 +643,17 @@ This software is proprietary and confidential. Unauthorized copying, distributio
 - Developer Experience – Hot reload, type hints, automatic docs
 
 - Built with 🚀 by Finimen Sniper
+
+## Kubernetes Quick Start
+```bash
+# Build Docker image
+docker build -t autocloud:latest .
+
+# Deploy to Kubernetes
+kubectl create namespace autocloud
+kubectl apply -f k8s/
+
+# Access the application
+kubectl port-forward -n autocloud svc/autocloud-api 8000:8000
+# Open http://localhost:8000
+```
