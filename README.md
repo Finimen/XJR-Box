@@ -494,7 +494,7 @@ services:
 
 ✅ Email notifications
 
-### Phase 2 (Q2 2025)
+### Phase 2 (Q2 2027)
 🔄 Script templates library
 
 🔄 Environment variables per script
@@ -503,7 +503,7 @@ services:
 
 🔄 Execution analytics dashboard
 
-### Phase 3 (Q3 2025)
+### Phase 3 (Q3 2027)
 📅 Team collaboration features
 
 📅 Script version control
@@ -518,7 +518,7 @@ This is a proprietary project. For enterprise licensing or custom development in
 Contact: finimensniper@gmail.com
 
 ## 📄 License
-Copyright © 2025 Finimen Sniper / FSC. All rights reserved.
+Copyright © 2026 Finimen Sniper / FSC. All rights reserved.
 
 This software is proprietary and confidential. Unauthorized copying, distribution, or use of this software via any medium is strictly prohibited.
 
