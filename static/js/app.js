@@ -1,51 +1,67 @@
-// Глобальные переменные
 let token = localStorage.getItem('token');
 let currentUser = null;
+let allScripts = [];
+let allExecutions = [];
+let refreshInterval = null;
 
-// Инициализация
 document.addEventListener('DOMContentLoaded', () => {
     if (token) {
+        API.setToken(token);
         checkAuth();
     }
+    setupNavigation();
+    loadSettings();
 });
 
-// ========== AUTH ==========
+function setupNavigation() {
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            const page = item.dataset.page;
+            showPage(page);
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            item.classList.add('active');
+        });
+    });
+}
+
+function showPage(page) {
+    document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+    document.getElementById(`${page}Page`).style.display = 'block';
+    
+    if (page === 'logs') refreshLogs();
+    else if (page === 'dashboard') loadDashboard();
+    else if (page === 'scripts') loadScripts();
+}
 
 async function checkAuth() {
     try {
-        const response = await fetch('/auth/me', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
+        currentUser = await API.getMe();
         
-        if (response.ok) {
-            const user = await response.json();
-            currentUser = user;
-            showMainContent(user.username);
-        } else {
-            logout();
-        }
+        document.getElementById('authRequired').style.display = 'none';
+        document.getElementById('mainAppContent').style.display = 'block';
+        document.getElementById('userInfoSidebar').style.display = 'flex';
+        
+        UI.updateProfile(currentUser);
+        
+        await Promise.all([
+            loadDashboard(),
+            loadScripts(),
+            loadAllLogs(),
+            loadProfileStats()
+        ]);
+        
+        if (refreshInterval) clearInterval(refreshInterval);
+        refreshInterval = setInterval(() => {
+            const activePage = document.querySelector('.nav-item.active')?.dataset.page;
+            if (activePage === 'logs') refreshLogs();
+            else if (activePage === 'dashboard') loadDashboard();
+        }, 5000);
+        
     } catch (error) {
-        console.error('Auth check failed:', error);
+        console.error('Auth failed:', error);
         logout();
     }
-}
-
-function showLoginForm() {
-    document.getElementById('loginForm').style.display = 'flex';
-}
-
-function hideLoginForm() {
-    document.getElementById('loginForm').style.display = 'none';
-}
-
-function showRegisterForm() {
-    document.getElementById('registerForm').style.display = 'flex';
-}
-
-function hideRegisterForm() {
-    document.getElementById('registerForm').style.display = 'none';
 }
 
 async function login() {
@@ -53,24 +69,11 @@ async function login() {
     const password = document.getElementById('loginPassword').value;
     
     try {
-        const response = await fetch('/auth/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ username, password })
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            token = data.access_token;
-            localStorage.setItem('token', token);
-            hideLoginForm();
-            await checkAuth();
-        } else {
-            const error = await response.json();
-            alert('Login failed: ' + (error.detail || 'Unknown error'));
-        }
+        const data = await API.login(username, password);
+        API.setToken(data.access_token);
+        token = data.access_token;
+        UI.hideModal('loginModal');
+        await checkAuth();
     } catch (error) {
         alert('Login failed: ' + error.message);
     }
@@ -82,63 +85,59 @@ async function register() {
     const password = document.getElementById('regPassword').value;
     
     try {
-        const response = await fetch('/auth/register', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ username, email, password })
-        });
-        
-        if (response.ok) {
-            alert('Registration successful! Please login.');
-            hideRegisterForm();
-            showLoginForm();
-        } else {
-            const error = await response.json();
-            alert('Registration failed: ' + (error.detail || 'Unknown error'));
-        }
+        await API.register(username, email, password);
+        alert('Registration successful! Please login.');
+        UI.hideModal('registerModal');
+        UI.showModal('loginModal');
     } catch (error) {
         alert('Registration failed: ' + error.message);
     }
 }
 
 async function logout() {
-    try {
-        await fetch('/auth/logout', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-    } catch (error) {
-        console.error('Logout error:', error);
-    }
-    
+    await API.logout();
+    API.setToken(null);
     token = null;
     currentUser = null;
-    localStorage.removeItem('token');
-    document.getElementById('authButtons').style.display = 'flex';
-    document.getElementById('userInfo').style.display = 'none';
-    document.getElementById('mainContent').style.display = 'none';
-}
-
-function showMainContent(username) {
-    document.getElementById('authButtons').style.display = 'none';
-    document.getElementById('userInfo').style.display = 'flex';
-    document.getElementById('username').innerText = username;
-    document.getElementById('mainContent').style.display = 'block';
+    if (refreshInterval) clearInterval(refreshInterval);
     
-    // Загружаем скрипты
-    loadScripts();
+    document.getElementById('authRequired').style.display = 'flex';
+    document.getElementById('mainAppContent').style.display = 'none';
+    document.getElementById('userInfoSidebar').style.display = 'none';
+    UI.clearModalInputs(['loginUsername', 'loginPassword']);
 }
 
-// ========== SCRIPTS ==========
+async function loadDashboard() {
+    try {
+        const scripts = await API.getScripts();
+        const executions = await API.getAllExecutions();
+        const allExecs = executions || [];
+        
+        allExecutions = allExecs.sort((a, b) => new Date(b.started_at) - new Date(a.started_at));
+        
+        const successCount = allExecutions.filter(e => e.status === 'success').length;
+        const successRate = allExecutions.length > 0 ? Math.round((successCount / allExecutions.length) * 100) : 0;
+        
+        UI.updateDashboardStats(scripts.length, allExecutions.length, successRate);
+        UI.renderRecentExecutions(allExecutions.slice(0, 5));
+    } catch (error) {
+        console.error('Failed to load dashboard:', error);
+    }
+}
 
-async function createScript() {
-    const name = document.getElementById('scriptName').value;
-    const code = document.getElementById('scriptCode').value;
-    const schedule = document.getElementById('scriptSchedule').value || null;
+async function loadScripts() {
+    try {
+        allScripts = await API.getScripts();
+        UI.renderScripts(allScripts, runScript, deleteScript, showScriptDetail);
+    } catch (error) {
+        console.error('Failed to load scripts:', error);
+    }
+}
+
+async function createScriptFromModal() {
+    const name = document.getElementById('modalScriptName').value;
+    const code = document.getElementById('modalScriptCode').value;
+    const schedule = document.getElementById('modalScriptSchedule').value || null;
     
     if (!name || !code) {
         alert('Name and code are required!');
@@ -146,163 +145,236 @@ async function createScript() {
     }
     
     try {
-        const response = await fetch('/scripts/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ name, code, schedule })
-        });
-        
-        if (response.ok) {
-            alert('Script created!');
-            document.getElementById('scriptName').value = '';
-            document.getElementById('scriptCode').value = '';
-            document.getElementById('scriptSchedule').value = '';
-            loadScripts();
-        } else {
-            const error = await response.json();
-            alert('Failed to create script: ' + (error.detail || 'Unknown error'));
-        }
+        await API.createScript({ name, code, schedule });
+        alert('Script created successfully!');
+        UI.hideModal('createScriptModal');
+        UI.clearModalInputs(['modalScriptName', 'modalScriptCode', 'modalScriptSchedule']);
+        await Promise.all([loadScripts(), loadDashboard()]);
     } catch (error) {
         alert('Failed to create script: ' + error.message);
     }
 }
 
-async function loadScripts() {
-    try {
-        const response = await fetch('/scripts/', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        
-        if (response.ok) {
-            const scripts = await response.json();
-            displayScripts(scripts);
-        }
-    } catch (error) {
-        console.error('Failed to load scripts:', error);
-    }
-}
-
-function displayScripts(scripts) {
-    const container = document.getElementById('scriptsContainer');
-    
-    if (scripts.length === 0) {
-        container.innerHTML = '<p>No scripts yet. Create your first script!</p>';
-        return;
-    }
-    
-    container.innerHTML = scripts.map(script => `
-        <div class="script-card">
-            <h3>${escapeHtml(script.name)}</h3>
-            <p>${script.description || 'No description'}</p>
-            <p><small>Schedule: ${script.schedule || 'Manual only'}</small></p>
-            <p><small>Active: ${script.is_active ? '✅' : '❌'}</small></p>
-            <pre>${escapeHtml(script.code.substring(0, 200))}${script.code.length > 200 ? '...' : ''}</pre>
-            <button onclick="runScript(${script.id})">▶ Run Now</button>
-            <button onclick="deleteScript(${script.id})">🗑 Delete</button>
-            <div id="executions-${script.id}"></div>
-        </div>
-    `).join('');
-    
-    // Загружаем историю выполнения для каждого скрипта
-    scripts.forEach(script => {
-        loadExecutions(script.id);
-    });
-}
-
 async function runScript(scriptId) {
     try {
-        const response = await fetch(`/scripts/${scriptId}/run`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            alert(`Script started! Execution ID: ${data.execution_id}`);
-            // Подождать немного и обновить историю
-            setTimeout(() => loadExecutions(scriptId), 1000);
-        } else {
-            const error = await response.json();
-            alert('Failed to run script: ' + (error.detail || 'Unknown error'));
-        }
+        const data = await API.runScript(scriptId);
+        alert(`✅ Script started! Execution ID: ${data.execution_id}`);
+        setTimeout(() => {
+            loadDashboard();
+            refreshLogs();
+        }, 1000);
     } catch (error) {
         alert('Failed to run script: ' + error.message);
     }
 }
 
 async function deleteScript(scriptId) {
-    if (!confirm('Are you sure you want to delete this script?')) {
-        return;
-    }
+    if (!confirm('Are you sure you want to delete this script?')) return;
     
     try {
-        const response = await fetch(`/scripts/${scriptId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        
-        if (response.ok) {
-            alert('Script deleted!');
-            loadScripts();
-        } else {
-            alert('Failed to delete script');
-        }
+        await API.deleteScript(scriptId);
+        alert('Script deleted!');
+        await Promise.all([loadScripts(), loadDashboard()]);
     } catch (error) {
         alert('Failed to delete script: ' + error.message);
     }
 }
 
-async function loadExecutions(scriptId) {
+async function showScriptDetail(_, scriptId) {
+    const script = allScripts.find(s => s.id === scriptId);
+    if (!script) return;
+    
+    const executions = await API.getScriptExecutions(scriptId, 5);
+    
+    document.getElementById('scriptDetailContent').innerHTML = `
+        <div style="margin-bottom: 20px;">
+            <h3>${escapeHtml(script.name)}</h3>
+            <p><strong>Schedule:</strong> ${script.schedule || 'Manual only'}</p>
+            <p><strong>Created:</strong> ${formatDate(script.created_at)}</p>
+            <p><strong>Last run:</strong> ${script.last_run_at ? formatDate(script.last_run_at) : 'Never'}</p>
+        </div>
+        <div><strong>Code:</strong>
+            <pre style="background:#1e1e1e;color:#d4d4d4;padding:15px;border-radius:8px;overflow-x:auto;">${escapeHtml(script.code)}</pre>
+        </div>
+        <div style="margin-top:20px;">
+            <strong>Recent Executions:</strong>
+            <div id="detailExecutions">${executions.map(exec => `
+                <div style="background:#f9f9f9;padding:10px;margin-top:10px;border-radius:5px;">
+                    <span class="status ${exec.status}">${exec.status}</span> - ${formatDate(exec.started_at)}
+                    ${exec.duration_ms ? ` (${exec.duration_ms}ms)` : ''}
+                </div>
+            `).join('') || '<p>No executions yet</p>'}</div>
+        </div>
+    `;
+    
+    document.getElementById('detailScriptName').innerText = script.name;
+    document.getElementById('runFromDetailBtn').onclick = () => runScript(script.id);
+    UI.showModal('scriptDetailModal');
+}
+
+async function loadAllLogs() {
     try {
-        const response = await fetch(`/scripts/${scriptId}/executions?limit=5`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
+        const scripts = allScripts.length ? allScripts : await API.getScripts();
+        allScripts = scripts;
         
-        if (response.ok) {
-            const executions = await response.json();
-            displayExecutions(scriptId, executions);
+        let allExecs = [];
+        for (const script of scripts) {
+            const execs = await API.getScriptExecutions(script.id, 20);
+            allExecs.push(...execs.map(e => ({ ...e, script_name: script.name })));
         }
+        
+        allExecutions = allExecs.sort((a, b) => new Date(b.started_at) - new Date(a.started_at));
+        UI.renderLogs(allExecutions);
     } catch (error) {
-        console.error('Failed to load executions:', error);
+        console.error('Failed to load logs:', error);
     }
 }
 
-function displayExecutions(scriptId, executions) {
-    const container = document.getElementById(`executions-${scriptId}`);
+async function refreshLogs() {
+    if (!token) return;
     
-    if (!executions || executions.length === 0) {
-        container.innerHTML = '<p><small>No executions yet</small></p>';
+    try {
+        const executions = await API.getAllExecutions();
+        if (executions) {
+            allExecutions = executions.sort((a, b) => new Date(b.started_at) - new Date(a.started_at));
+            for (const exec of allExecutions) {
+                const script = allScripts.find(s => s.id === exec.script_id);
+                exec.script_name = script ? script.name : `Script #${exec.script_id}`;
+            }
+            
+            const filter = document.getElementById('logFilter')?.value || 'all';
+            UI.renderLogs(filter === 'all' ? allExecutions : allExecutions.filter(e => e.status === filter));
+        }
+    } catch (error) {
+        console.error('Failed to refresh logs:', error);
+    }
+}
+
+function filterLogs() {
+    const filter = document.getElementById('logFilter').value;
+    UI.renderLogs(filter === 'all' ? allExecutions : allExecutions.filter(e => e.status === filter));
+}
+
+async function viewLogDetails(executionId) {
+    let execution = allExecutions.find(e => e.id === executionId);
+    
+    if (!execution) {
+        for (const script of allScripts) {
+            const execs = await API.getScriptExecutions(script.id, 100);
+            execution = execs.find(e => e.id === executionId);
+            if (execution) break;
+        }
+    }
+    
+    if (!execution) {
+        alert('Execution not found');
         return;
     }
     
-    container.innerHTML = `
-        <div class="executions">
-            <strong>Recent executions:</strong>
-            ${executions.map(exec => `
-                <div class="execution-item">
-                    <span class="${exec.status}">${exec.status}</span>
-                    - ${new Date(exec.started_at).toLocaleString()}
-                    ${exec.duration_ms ? ` (${exec.duration_ms}ms)` : ''}
-                </div>
-            `).join('')}
-        </div>
+    document.getElementById('logDetails').innerHTML = `
+        <div><strong>Script ID:</strong> ${execution.script_id}</div>
+        <div><strong>Status:</strong> <span class="status ${execution.status}">${execution.status}</span></div>
+        <div><strong>Started:</strong> ${formatDate(execution.started_at)}</div>
+        <div><strong>Finished:</strong> ${execution.finished_at ? formatDate(execution.finished_at) : 'N/A'}</div>
+        <div><strong>Duration:</strong> ${formatDuration(execution.duration_ms)}</div>
+        ${execution.output ? `<div style="margin-top:15px;"><strong>Output:</strong><pre style="background:#1e1e1e;color:#d4d4d4;padding:10px;border-radius:5px;overflow-x:auto;">${escapeHtml(execution.output)}</pre></div>` : ''}
+        ${execution.error ? `<div style="margin-top:15px;"><strong>Error:</strong><pre style="background:#2d1e1e;color:#ff6b6b;padding:10px;border-radius:5px;">${escapeHtml(execution.error)}</pre></div>` : ''}
     `;
+    
+    UI.showModal('viewLogModal');
 }
 
-// Helper function to escape HTML
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+async function loadProfileStats() {
+    try {
+        const scripts = await API.getScripts();
+        let totalExecutions = 0, successCount = 0, totalDuration = 0;
+        
+        for (const script of scripts) {
+            const execs = await API.getScriptExecutions(script.id, 100);
+            totalExecutions += execs.length;
+            successCount += execs.filter(e => e.status === 'success').length;
+            totalDuration += execs.reduce((sum, e) => sum + (e.duration_ms || 0), 0);
+        }
+        
+        document.getElementById('statScripts').innerText = scripts.length;
+        document.getElementById('statExecutions').innerText = totalExecutions;
+        document.getElementById('statSuccessRate').innerText = totalExecutions > 0 ? Math.round((successCount / totalExecutions) * 100) + '%' : '0%';
+        document.getElementById('statTotalTime').innerText = formatDuration(totalDuration);
+    } catch (error) {
+        console.error('Failed to load stats:', error);
+    }
+}
+
+async function changePassword() {
+    const oldPassword = document.getElementById('oldPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    
+    if (!oldPassword || !newPassword) {
+        alert('Please fill all fields');
+        return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+        alert('New passwords do not match');
+        return;
+    }
+    
+    try {
+        await API.post('/auth/change-password', { old_password: oldPassword, new_password: newPassword });
+        alert('Password changed successfully! Please login again.');
+        logout();
+    } catch (error) {
+        alert('Failed to change password: ' + error.message);
+    }
+}
+
+async function deleteAccount() {
+    if (!confirm('⚠️ WARNING: This will permanently delete your account AND all your scripts!\n\nAre you absolutely sure?')) return;
+    if (!confirm('Type "DELETE" to confirm')) return;
+    
+    try {
+        await API.delete('/auth/delete-account');
+        alert('Account deleted successfully');
+        logout();
+    } catch (error) {
+        alert('Failed to delete account: ' + error.message);
+    }
+}
+
+function showCreateScriptModal() {
+    UI.clearModalInputs(['modalScriptName', 'modalScriptCode', 'modalScriptSchedule']);
+    UI.showModal('createScriptModal');
+}
+
+function showLoginForm() { UI.showModal('loginModal'); }
+function showRegisterForm() { UI.showModal('registerModal'); }
+function showChangePasswordModal() {
+    UI.clearModalInputs(['oldPassword', 'newPassword', 'confirmPassword']);
+    UI.showModal('changePasswordModal');
+}
+
+function closeCreateScriptModal() { UI.hideModal('createScriptModal'); }
+function closeLoginModal() { UI.hideModal('loginModal'); }
+function closeRegisterModal() { UI.hideModal('registerModal'); }
+function closeChangePasswordModal() { UI.hideModal('changePasswordModal'); }
+function closeScriptDetailModal() { UI.hideModal('scriptDetailModal'); }
+function closeViewLogModal() { UI.hideModal('viewLogModal'); }
+
+function editField(field) {
+    const newValue = prompt(`Enter new ${field}:`);
+    if (newValue) {
+        showToast(`${field} updated to: ${newValue} (demo)`, 'success');
+        if (field === 'username') document.getElementById('profileUsername').innerText = newValue;
+        if (field === 'email') document.getElementById('profileEmail').innerText = newValue;
+    }
+}
+
+function showUpgradeModal() { showToast('Upgrade to Premium plan - More features coming soon!', 'info'); }
+function show2FAModal() { showToast('2FA setup would be implemented here', 'info'); }
+function showSessionsModal() { showToast('Active sessions management coming soon', 'info'); }
+function showAccessLogs() { showToast('Access logs feature coming soon', 'info'); }
+function exportData() {
+    showToast('Exporting your data... (demo)', 'info');
+    setTimeout(() => showToast('Data export would start here', 'success'), 1500);
 }

@@ -20,7 +20,6 @@ class ScriptRepository:
         description:  Optional[str], 
         schedule: Optional[str]
     ) -> Script:
-        """Создать новый скрипт"""
         logger.info(f"creating script '{name}' for user {user_id}")
         
         script = Script(
@@ -210,5 +209,29 @@ class ScriptRepository:
             .where(Execution.id == execution_id, Script.user_id == user_id)
         )
         
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
+    
+    async def get_all_user_executions(self, user_id: int, limit: int = 100) -> List[Execution]:
+        query = (
+            select(Execution)
+            .join(Script, Execution.script_id == Script.id)
+            .where(Script.user_id == user_id)
+            .order_by(desc(Execution.started_at))
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+    
+    async def get_all_active_scripts(self) -> List[Script]:
+        query = select(Script).where(
+            Script.is_active == True,
+            Script.schedule.isnot(None)
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_script_by_id(self, script_id: int) -> Optional[Script]:
+        query = select(Script).where(Script.id == script_id)
         result = await self.db.execute(query)
         return result.scalar_one_or_none()

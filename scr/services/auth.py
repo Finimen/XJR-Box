@@ -1,4 +1,3 @@
-# services/auth.py (без HTTPException)
 from typing import Tuple, Optional
 import bcrypt
 import jwt
@@ -62,10 +61,6 @@ class AuthService:
         return True, token, None
     
     async def get_current_user(self, token: str) -> Tuple[bool, Optional[UserModel], Optional[str]]:
-        """
-        Получение текущего пользователя из токена.
-        Returns: (success, user, error_message)
-        """
         try:
             payload = jwt.decode(
                 token, 

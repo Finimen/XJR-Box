@@ -9,7 +9,6 @@ class RedisService:
         self._is_connected = False
     
     async def connect(self) -> None:
-        """Подключение к Redis"""
         if not self._is_connected:
             try:
                 self.redis = await aioredis.from_url(

@@ -19,11 +19,12 @@ class ScriptUpdate(BaseModel):
 class ScriptResponse(BaseModel):
     id: int
     name: str
-    description: Optional[str]
-    schedule: Optional[str]
-    is_active: bool
+    description: Optional[str] = None
+    code: str
+    schedule: Optional[str] = None
+    is_active: bool  = True
     created_at: datetime
-    last_run_at: Optional[datetime]
+    last_run_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True

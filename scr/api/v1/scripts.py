@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from typing import List
-from scr.core.di import get_script_service
+from scr.core.di import get_scheduler, get_script_service
 from scr.core.tools import get_current_user
 from scr.schemas.execution import ExecutionResponse
 from scr.schemas.script import ScriptCreate, ScriptUpdate, ScriptResponse
+from scr.services.scheduler import ScriptScheduler
 from scr.services.script import ScriptService
 from scr.models.user_model import UserModel
 
@@ -14,7 +15,8 @@ async def create_script(
     script_data: ScriptCreate,
     background_tasks: BackgroundTasks,
     current_user: UserModel = Depends(get_current_user),
-    script_service: ScriptService = Depends(get_script_service)
+    script_service: ScriptService = Depends(get_script_service),
+    scheduler: ScriptScheduler = Depends(get_scheduler)
 ):
     script = await script_service.create_script(
         user_id=current_user.id,
@@ -23,6 +25,10 @@ async def create_script(
         code=script_data.code,
         schedule=script_data.schedule
     )
+
+    if script.schedule and script.is_active:
+        await scheduler.add_job(script)
+
     return script
 
 @router.get("/", response_model=List[ScriptResponse])
@@ -51,7 +57,8 @@ async def update_script(
     script_id: int,
     script_data: ScriptUpdate,
     current_user: UserModel = Depends(get_current_user),
-    script_service: ScriptService = Depends(get_script_service)
+    script_service: ScriptService = Depends(get_script_service),
+    scheduler: ScriptScheduler = Depends(get_scheduler)
 ):
     script = await script_service.update_script(
         script_id, 
@@ -60,14 +67,20 @@ async def update_script(
     )
     if not script:
         raise HTTPException(404, "Script not found")
+    
+    await scheduler.update_job(script)
+
     return script
 
 @router.delete("/{script_id}", status_code=204)
 async def delete_script(
     script_id: int,
     current_user: UserModel = Depends(get_current_user),
-    script_service: ScriptService = Depends(get_script_service)
+    script_service: ScriptService = Depends(get_script_service),
+    scheduler: ScriptScheduler = Depends(get_scheduler)
 ):
+    await scheduler.remove_job(script_id)
+
     deleted = await script_service.delete_script(script_id, current_user.id)
     if not deleted:
         raise HTTPException(404, "Script not found")
@@ -95,4 +108,13 @@ async def get_script_executions(
     limit: int = 50
 ):
     executions = await script_service.get_script_executions(script_id, current_user.id, limit)
+    return executions
+
+@router.get("/executions/all", response_model=List[ExecutionResponse])
+async def get_all_executions(
+    current_user: UserModel = Depends(get_current_user),
+    script_service: ScriptService = Depends(get_script_service),
+    limit: int = 100
+):
+    executions = await script_service.get_all_user_executions(current_user.id, limit)
     return executions

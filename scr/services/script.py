@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 import asyncio
+from scr.models.execution import Execution
 from scr.models.script import Script
 from scr.repositories.scripts_repository import ScriptRepository
 from scr.services.redis import RedisService
@@ -28,7 +29,23 @@ class ScriptService:
         
         execution = await self.script_repo.create_execution(script_id)
         
-        background_tasks.add_task(self._execute_script, script, execution.id)
+        import asyncio
+        asyncio.create_task(self._execute_script(script, execution.id))
+        
+        return execution.id
+    
+    async def get_script_by_id(self, script_id: int) -> Optional[Script]:
+        return await self.script_repo.get_script_by_id(script_id)
+
+    async def run_script_by_id(self, script_id: int) -> int:
+        script = await self.script_repo.get_script_by_id(script_id)
+        if not script:
+            raise ValueError(f"Script {script_id} not found")
+        
+        execution = await self.script_repo.create_execution(script_id)
+        
+        import asyncio
+        asyncio.create_task(self._execute_script(script, execution.id))
         
         return execution.id
     
@@ -103,3 +120,8 @@ class ScriptService:
     async def get_script_executions(self, script_id: int, user_id: int, limit: int = 50) -> List[Execution]:
         return await self.script_repo.get_script_executions(script_id, user_id, limit)
     
+    async def get_all_user_executions(self, user_id: int, limit: int = 100) -> List[Execution]:
+        return await self.script_repo.get_all_user_executions(user_id, limit)
+        
+    async def get_all_active_scripts(self) -> List[Script]:
+        return await self.script_repo.get_all_active_scripts()

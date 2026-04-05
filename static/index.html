@@ -5,64 +5,519 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Automation Cloud ☁️</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <header>
-            <h1>☁️ Automation Cloud</h1>
-            <div id="authButtons" class="auth-buttons">
-                <button onclick="showLoginForm()">Login</button>
-                <button onclick="showRegisterForm()">Register</button>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <span class="material-icons">cloud</span>
+                <h2>AutoCloud</h2>
             </div>
-            <div id="userInfo" class="user-info" style="display:none;">
-                <span id="username"></span>
-                <button onclick="logout()">Logout</button>
+            
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-page="dashboard">
+                    <span class="material-icons">dashboard</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-page="scripts">
+                    <span class="material-icons">code</span>
+                    <span>Scripts</span>
+                </a>
+                <a href="#" class="nav-item" data-page="logs">
+                    <span class="material-icons">history</span>
+                    <span>Execution Logs</span>
+                </a>
+                <a href="#" class="nav-item" data-page="profile">
+                    <span class="material-icons">person</span>
+                    <span>Profile</span>
+                </a>
+            </nav>
+            
+            <div class="user-info-sidebar" id="userInfoSidebar" style="display:none;">
+                <div class="user-avatar">
+                    <span class="material-icons">account_circle</span>
+                </div>
+                <div class="user-details">
+                    <span id="sidebarUsername"></span>
+                    <button onclick="logout()" class="logout-btn">Logout</button>
+                </div>
             </div>
-        </header>
+        </aside>
 
-        <!-- Форма логина -->
-        <div id="loginForm" class="form-modal" style="display:none;">
-            <div class="form-content">
-                <h2>Login</h2>
-                <input type="text" id="loginUsername" placeholder="Username">
-                <input type="password" id="loginPassword" placeholder="Password">
-                <button onclick="login()">Login</button>
-                <button onclick="hideLoginForm()">Cancel</button>
-            </div>
-        </div>
-
-        <!-- Форма регистрации -->
-        <div id="registerForm" class="form-modal" style="display:none;">
-            <div class="form-content">
-                <h2>Register</h2>
-                <input type="text" id="regUsername" placeholder="Username">
-                <input type="email" id="regEmail" placeholder="Email">
-                <input type="password" id="regPassword" placeholder="Password">
-                <button onclick="register()">Register</button>
-                <button onclick="hideRegisterForm()">Cancel</button>
-            </div>
-        </div>
-
-        <!-- Основной контент (виден только после логина) -->
-        <div id="mainContent" style="display:none;">
-            <!-- Форма создания скрипта -->
-            <div class="create-script">
-                <h2>📝 Create New Script</h2>
-                <input type="text" id="scriptName" placeholder="Script name">
-                <textarea id="scriptCode" placeholder="Python code" rows="10"></textarea>
-                <input type="text" id="scriptSchedule" placeholder="Schedule (e.g., */5 * * * * or leave empty)">
-                <button onclick="createScript()">Create Script</button>
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Auth required overlay (пока не залогинились) -->
+            <div id="authRequired" class="auth-overlay">
+                <div class="auth-card">
+                    <h2>Welcome to AutoCloud ☁️</h2>
+                    <p>Your personal automation platform</p>
+                    <div class="auth-buttons-main">
+                        <button onclick="showLoginForm()" class="btn-primary">Login</button>
+                        <button onclick="showRegisterForm()" class="btn-secondary">Register</button>
+                    </div>
+                </div>
             </div>
 
-            <!-- Список скриптов -->
-            <div class="scripts-list">
-                <h2>📋 Your Scripts</h2>
-                <div id="scriptsContainer"></div>
+            <!-- Основной контент (после логина) -->
+            <div id="mainAppContent" style="display:none;">
+                <!-- Dashboard Page -->
+                <div id="dashboardPage" class="page">
+                    <div class="page-header">
+                        <h1>Dashboard</h1>
+                        <p>Welcome back, <span id="dashboardUsername"></span>!</p>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <span class="material-icons">description</span>
+                            <div class="stat-info">
+                                <h3 id="totalScripts">0</h3>
+                                <p>Total Scripts</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="material-icons">play_circle</span>
+                            <div class="stat-info">
+                                <h3 id="totalRuns">0</h3>
+                                <p>Total Executions</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="material-icons">check_circle</span>
+                            <div class="stat-info">
+                                <h3 id="successRate">0%</h3>
+                                <p>Success Rate</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="recent-section">
+                        <h2>Recent Activity</h2>
+                        <div id="recentExecutions" class="recent-list"></div>
+                    </div>
+                </div>
+
+                <!-- Scripts Page -->
+                <div id="scriptsPage" class="page" style="display:none;">
+                    <div class="page-header">
+                        <h1>Your Scripts</h1>
+                        <button onclick="showCreateScriptModal()" class="btn-primary">
+                            <span class="material-icons">add</span> New Script
+                        </button>
+                    </div>
+                    <div id="scriptsGrid" class="scripts-grid"></div>
+                </div>
+
+                <!-- Logs Page -->
+                <div id="logsPage" class="page" style="display:none;">
+                    <div class="page-header">
+                        <h1>Execution Logs</h1>
+                        <div class="filters">
+                            <select id="logFilter" onchange="filterLogs()">
+                                <option value="all">All</option>
+                                <option value="success">Success</option>
+                                <option value="failed">Failed</option>
+                                <option value="timeout">Timeout</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="logsContainer" class="logs-container"></div>
+                </div>
+
+                <!-- Profile Page -->
+                <div id="profilePage" class="page" style="display:none;">
+                    <div class="page-header">
+                        <h1>Profile Settings</h1>
+                    </div>
+                    
+                    <div class="profile-grid">
+                        <!-- Основная информация -->
+                        <div class="profile-card">
+                            <div class="card-header">
+                                <span class="material-icons">account_circle</span>
+                                <h3>Account Information</h3>
+                            </div>
+                            <div class="profile-info">
+                                <div class="info-row">
+                                    <span class="label">Username:</span>
+                                    <span id="profileUsername" class="value"></span>
+                                    <button class="edit-btn" onclick="editField('username')">✏️</button>
+                                </div>
+                                <div class="info-row">
+                                    <span class="label">Email:</span>
+                                    <span id="profileEmail" class="value"></span>
+                                    <button class="edit-btn" onclick="editField('email')">✏️</button>
+                                </div>
+                                <div class="info-row">
+                                    <span class="label">Member since:</span>
+                                    <span id="profileCreated" class="value"></span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="label">Account status:</span>
+                                    <span class="value" style="color: #28a745;">✓ Active</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="label">Account tier:</span>
+                                    <span class="value">
+                                        <span class="tier-badge">🚀 Pro</span>
+                                        <button class="upgrade-btn" onclick="showUpgradeModal()">Upgrade</button>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Статистика использования -->
+                        <div class="profile-card">
+                            <div class="card-header">
+                                <span class="material-icons">analytics</span>
+                                <h3>Usage Statistics</h3>
+                            </div>
+                            <div class="stats-details">
+                                <div class="stat-row">
+                                    <span>Scripts created:</span>
+                                    <strong id="statScripts">0</strong>
+                                </div>
+                                <div class="stat-row">
+                                    <span>Total executions:</span>
+                                    <strong id="statExecutions">0</strong>
+                                </div>
+                                <div class="stat-row">
+                                    <span>Success rate:</span>
+                                    <strong id="statSuccessRate">0%</strong>
+                                </div>
+                                <div class="stat-row">
+                                    <span>Total execution time:</span>
+                                    <strong id="statTotalTime">0 ms</strong>
+                                </div>
+                                <div class="stat-row">
+                                    <span>API calls this month:</span>
+                                    <strong id="statApiCalls">0 / 10,000</strong>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Настройки уведомлений -->
+                        <div class="profile-card">
+                            <div class="card-header">
+                                <span class="material-icons">notifications</span>
+                                <h3>Notifications</h3>
+                            </div>
+                            <div class="settings-list">
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>📧 Email notifications</strong>
+                                        <p class="setting-desc">Receive execution results via email</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="emailNotifications" onchange="saveSetting('email_notifications', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>✅ Success alerts</strong>
+                                        <p class="setting-desc">Get notified when scripts succeed</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="successAlerts" onchange="saveSetting('success_alerts', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>❌ Failure alerts</strong>
+                                        <p class="setting-desc">Get notified when scripts fail</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="failureAlerts" onchange="saveSetting('failure_alerts', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>📊 Daily digest</strong>
+                                        <p class="setting-desc">Receive daily summary of all executions</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="dailyDigest" onchange="saveSetting('daily_digest', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- API & Integration -->
+                        <div class="profile-card">
+                            <div class="card-header">
+                                <span class="material-icons">code</span>
+                                <h3>API & Integration</h3>
+                            </div>
+                            <div class="settings-list">
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>🔑 API Key</strong>
+                                        <p class="setting-desc">Use this key to authenticate API requests</p>
+                                        <code id="apiKey" class="api-key">sk_live_xxxxxxxxxxxx</code>
+                                    </div>
+                                    <button class="secondary-btn" onclick="copyApiKey()">📋 Copy</button>
+                                </div>
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>🌐 Webhook URL</strong>
+                                        <p class="setting-desc">Receive execution results via HTTP POST</p>
+                                        <input type="text" id="webhookUrl" placeholder="https://your-server.com/webhook" class="webhook-input">
+                                    </div>
+                                    <button class="secondary-btn" onclick="saveWebhook()">Save</button>
+                                </div>
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>⚡ Max concurrent executions</strong>
+                                        <p class="setting-desc">Maximum number of scripts running simultaneously</p>
+                                    </div>
+                                    <select id="maxConcurrent" onchange="saveSetting('max_concurrent', this.value)" class="select-input">
+                                        <option value="1">1 script</option>
+                                        <option value="3">3 scripts</option>
+                                        <option value="5">5 scripts</option>
+                                        <option value="10">10 scripts</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Security -->
+                        <div class="profile-card">
+                            <div class="card-header">
+                                <span class="material-icons">security</span>
+                                <h3>Security</h3>
+                            </div>
+                            <div class="settings-list">
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>🔒 Two-factor authentication</strong>
+                                        <p class="setting-desc">Add an extra layer of security to your account</p>
+                                    </div>
+                                    <button class="secondary-btn" onclick="show2FAModal()">Enable</button>
+                                </div>
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>📱 Active sessions</strong>
+                                        <p class="setting-desc">Manage devices where you're logged in</p>
+                                    </div>
+                                    <button class="secondary-btn" onclick="showSessionsModal()">Manage</button>
+                                </div>
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>🔄 API key rotation</strong>
+                                        <p class="setting-desc">Generate new API key (old key will be invalidated)</p>
+                                    </div>
+                                    <button class="secondary-btn" onclick="rotateApiKey()">Rotate Key</button>
+                                </div>
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>📜 Access logs</strong>
+                                        <p class="setting-desc">View all API access attempts</p>
+                                    </div>
+                                    <button class="secondary-btn" onclick="showAccessLogs()">View Logs</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Execution Settings -->
+                        <div class="profile-card">
+                            <div class="card-header">
+                                <span class="material-icons">settings</span>
+                                <h3>Execution Settings</h3>
+                            </div>
+                            <div class="settings-list">
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>⏱️ Default timeout</strong>
+                                        <p class="setting-desc">Maximum execution time for scripts (seconds)</p>
+                                    </div>
+                                    <select id="defaultTimeout" onchange="saveSetting('default_timeout', this.value)" class="select-input">
+                                        <option value="30">30 seconds</option>
+                                        <option value="60">60 seconds</option>
+                                        <option value="120">2 minutes</option>
+                                        <option value="300">5 minutes</option>
+                                    </select>
+                                </div>
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>📦 Default Python version</strong>
+                                        <p class="setting-desc">Python version to use for script execution</p>
+                                    </div>
+                                    <select id="pythonVersion" onchange="saveSetting('python_version', this.value)" class="select-input">
+                                        <option value="3.11">Python 3.11</option>
+                                        <option value="3.12">Python 3.12</option>
+                                        <option value="3.13">Python 3.13</option>
+                                    </select>
+                                </div>
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>💾 Log retention</strong>
+                                        <p class="setting-desc">How long to keep execution logs</p>
+                                    </div>
+                                    <select id="logRetention" onchange="saveSetting('log_retention', this.value)" class="select-input">
+                                        <option value="7">7 days</option>
+                                        <option value="30">30 days</option>
+                                        <option value="90">90 days</option>
+                                        <option value="365">1 year</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Danger Zone -->
+                        <div class="profile-card danger-zone">
+                            <div class="card-header">
+                                <span class="material-icons">warning</span>
+                                <h3>Danger Zone</h3>
+                            </div>
+                            <div class="settings-list">
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>🔑 Change password</strong>
+                                        <p class="setting-desc">Update your account password</p>
+                                    </div>
+                                    <button class="danger-btn" onclick="showChangePasswordModal()">Change</button>
+                                </div>
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>📤 Export all data</strong>
+                                        <p class="setting-desc">Download all your scripts and execution logs</p>
+                                    </div>
+                                    <button class="secondary-btn" onclick="exportData()">Export</button>
+                                </div>
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>🗑️ Delete account</strong>
+                                        <p class="setting-desc">Permanently delete your account and all data</p>
+                                    </div>
+                                    <button class="danger-btn" onclick="deleteAccount()">Delete Account</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Create Script -->
+    <div id="createScriptModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Script</h2>
+                <button onclick="closeCreateScriptModal()" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="modalScriptName" placeholder="Script name" class="modal-input">
+                <textarea id="modalScriptCode" placeholder="Python code" rows="12" class="modal-textarea"></textarea>
+                <input type="text" id="modalScriptSchedule" placeholder="Schedule (e.g., */5 * * * *)" class="modal-input">
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeCreateScriptModal()" class="btn-secondary">Cancel</button>
+                <button onclick="createScriptFromModal()" class="btn-primary">Create</button>
             </div>
         </div>
     </div>
 
+    <!-- Modal View Log -->
+    <div id="viewLogModal" class="modal" style="display:none;">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>Execution Log</h2>
+                <button onclick="closeViewLogModal()" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="logDetails"></div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeViewLogModal()" class="btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Change Password -->
+    <div id="changePasswordModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Change Password</h2>
+                <button onclick="closeChangePasswordModal()" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="password" id="oldPassword" placeholder="Current password" class="modal-input">
+                <input type="password" id="newPassword" placeholder="New password" class="modal-input">
+                <input type="password" id="confirmPassword" placeholder="Confirm new password" class="modal-input">
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeChangePasswordModal()" class="btn-secondary">Cancel</button>
+                <button onclick="changePassword()" class="btn-primary">Update</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Login</h2>
+                <button onclick="closeLoginModal()" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="loginUsername" placeholder="Username" class="modal-input">
+                <input type="password" id="loginPassword" placeholder="Password" class="modal-input">
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeLoginModal()" class="btn-secondary">Cancel</button>
+                <button onclick="login()" class="btn-primary">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div id="registerModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Register</h2>
+                <button onclick="closeRegisterModal()" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="regUsername" placeholder="Username" class="modal-input">
+                <input type="email" id="regEmail" placeholder="Email" class="modal-input">
+                <input type="password" id="regPassword" placeholder="Password" class="modal-input">
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeRegisterModal()" class="btn-secondary">Cancel</button>
+                <button onclick="register()" class="btn-primary">Register</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Detail Modal -->
+    <div id="scriptDetailModal" class="modal modal-large" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="detailScriptName">Script Details</h2>
+                <button onclick="closeScriptDetailModal()" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="scriptDetailContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="closeScriptDetailModal()" class="btn-secondary">Close</button>
+                <button id="runFromDetailBtn" class="btn-primary">Run Now</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/ui.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
 </html>

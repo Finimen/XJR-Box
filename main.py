@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from scr.core.di import get_scheduler
 from scr.databases.init_db import init_db
 from scr.api.v1.auth import router as auth_router
 from scr.api.v1.scripts import router as script_router
@@ -30,7 +31,14 @@ async def lifespan(app: FastAPI):
     logger.info("starting up")
     await init_db()
 
+    scheduler = await get_scheduler()
+    await scheduler.start()
+    app.state.scheduler = scheduler
+
     yield
+
+    if hasattr(app.state, 'scheduler'):
+        await app.state.scheduler.shutdown()
 
     logger.info("shutting down gracefully")
     from scr.databases.session import engine
