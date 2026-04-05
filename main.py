@@ -3,17 +3,17 @@ import logging
 import os
 
 from scr.core.config import settings
-from httpx import request
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from scr.core.di import get_scheduler
 from scr.databases.init_db import init_db
 from scr.api.v1.auth import router as auth_router
 from scr.api.v1.scripts import router as script_router
+from scr.services.redis import RedisService
+from scr.services.rate_limit import RateLimitMiddleware
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,31 +26,48 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("starting up")
+
     await init_db()
 
-    scheduler = await get_scheduler()
+    redis_service = RedisService()
+    await redis_service.connect()
+    app.state.redis_service = redis_service
+    logger.info("✅ Redis connected")
+
+    try:
+        app.add_middleware(RateLimitMiddleware, redis_service=redis_service)
+        logger.info("✅ Rate limit middleware added")
+    except RuntimeError as e:
+        logger.warning(f"Could not add rate limit middleware: {e}")
+
+    from scr.services.scheduler import ScriptScheduler
+    from scr.databases.session import async_session
+
+    scheduler = ScriptScheduler(async_session, redis_service)
     await scheduler.start()
     app.state.scheduler = scheduler
+    logger.info("✅ Scheduler started")
 
     yield
 
     if hasattr(app.state, 'scheduler'):
         await app.state.scheduler.shutdown()
-
-    logger.info("shutting down gracefully")
+        logger.info("✅ Scheduler stopped")
+    
+    if hasattr(app.state, 'redis_service'):
+        await app.state.redis_service.disconnect()
+        logger.info("✅ Redis disconnected")
+    
     from scr.databases.session import engine
     await engine.dispose()
     logger.info("connection closed")
 
+
 app = FastAPI(title="jxr-box", lifespan=lifespan)
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-app.include_router(auth_router)
-app.include_router(script_router)
 
 app.add_middleware(
     middleware_class=CORSMiddleware,
@@ -60,16 +77,24 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+app.include_router(auth_router)
+app.include_router(script_router)
+
+
 @app.get("/")
 async def root():
     return FileResponse("static/index.html")
 
+
 @app.exception_handler(404)
-async def not_found_handler(reqest: Request, exc: HTTPException):
+async def not_found_handler(request: Request, exc: HTTPException):
     return JSONResponse(
         status_code=404,
-        content={"messege" : "Endpoint not found"}
+        content={"message": "Endpoint not found"} 
     )
+
 
 if __name__ == "__main__":
     import uvicorn

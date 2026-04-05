@@ -163,3 +163,24 @@ class RedisService:
     async def flush_all(self) -> None:
         await self._ensure_connection()
         await self.redis.flushall()
+
+    async def acquire_lock(self, lock_key: str, timeout: int = 10) -> bool:
+        await self._ensure_connection()
+        result = await self.redis.set(
+            lock_key, 
+            "locked", 
+            nx=True,
+            ex=timeout  
+        )
+        return result is True
+    
+    async def release_lock(self, lock_key: str) -> None:
+        await self._ensure_connection()
+        await self.redis.delete(lock_key)
+    
+    async def extend_lock(self, lock_key: str, timeout: int = 10) -> bool:
+        await self._ensure_connection()
+        if await self.redis.exists(lock_key):
+            await self.redis.expire(lock_key, timeout)
+            return True
+        return False

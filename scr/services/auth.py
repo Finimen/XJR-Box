@@ -1,3 +1,5 @@
+import asyncio
+from logging import getLogger
 from typing import Tuple, Optional
 import bcrypt
 import jwt
@@ -8,11 +10,13 @@ from scr.repositories.user_repository import UserRepository
 from scr.services.email import EmailService
 from scr.services.redis import RedisService
 
+logger = getLogger(__name__)
+
 class AuthService:
     def __init__(self, repository: UserRepository, email_service: EmailService, redis_service: RedisService, config: Settings):
         self.repository = repository
         self.email_service = email_service
-        self.redis_service = redis_service  # 👈 Добавить!
+        self.redis_service = redis_service
         self.config = config
     
     async def register(self, username: str, email: str, password: str) -> Tuple[bool, Optional[dict], Optional[str]]:
@@ -33,10 +37,7 @@ class AuthService:
             password_hash = password_hash.decode('utf-8'),
             ))
         
-        try:
-            await self.email_service.send_verification()
-        except Exception as e:
-            print(f"Email failed: {e}")
+        asyncio.create_task(self._send_verification_email_async(user))
         
         return True, user, None
     
@@ -44,6 +45,7 @@ class AuthService:
         user = await self.repository.get_user_by_username(username)
         
         if not user:
+            await self._fake_verify_password(password)
             return False, "", "Invalid credentials"
         
         password_bytes = password.encode('utf-8')
@@ -54,22 +56,31 @@ class AuthService:
         
         token = self._create_access_token({"sub": user.username, "user_id" : user.id})
 
-        if self.redis_service:
+        try:
             expire_seconds = self.config.ACCESS_TOKEN_EXPIRE_MINUTES * 60
             await self.redis_service.store_user_token(user.id, token, expire_seconds)
-
+            logger.info(f"Token stored for user {user.id}")
+        except Exception as e:
+            logger.error(f"Redis storage failed for user {user.id}: {e}")
+            # В production здесь должен быть fallback на БД или отказ в логине
+            raise HTTPException(
+                status_code=503,
+                detail="Authentication service temporarily unavailable"
+            )
         return True, token, None
     
     async def get_current_user(self, token: str) -> Tuple[bool, Optional[UserModel], Optional[str]]:
         try:
-            payload = jwt.decode(
-                token, 
-                self.config.JWT_SECRET_KEY, 
-                algorithms=[self.config.JWT_ALGORITHM]
-            )
-            
-            if await self.redis_service.is_blacklisted(token):
-                return False, None, "Token has been revoked"
+            try:
+                payload = jwt.decode(
+                    token, 
+                    self.config.JWT_SECRET_KEY, 
+                    algorithms=[self.config.JWT_ALGORITHM]
+                )
+            except jwt.ExpiredSignatureError:
+                return False, None, "Token expired"
+            except jwt.InvalidTokenError as e:
+                return False, None, f"Invalid token: {str(e)}"
             
             username = payload.get("sub")
             user_id = payload.get("user_id")
@@ -77,24 +88,66 @@ class AuthService:
             if not username or not user_id:
                 return False, None, "Invalid token payload"
             
-            is_valid = await self.redis_service.is_token_valid(user_id, token)
-            if not is_valid:
-                return False, None, "Session expired, please login again"
-            
+            try:
+                if await self.redis_service.is_blacklisted(token):
+                    logger.warning(f"Blacklisted token used for user {user_id}")
+                    return False, None, "Token has been revoked"
+                
+                is_valid = await self.redis_service.is_token_valid(user_id, token)
+                if not is_valid:
+                    logger.info(f"Invalid session for user {user_id}")
+                    return False, None, "Session expired, please login again"
+
+            except Exception as e:
+                logger.error(f"Redis validation failed: {e}")
+                return False, None, "Authentication service unavailable"
+
             user = await self.repository.get_user_by_username(username)
             if not user:
                 return False, None, "User not found"
-            
+
             return True, user, None
             
-        except jwt.ExpiredSignatureError:
-            return False, None, "Token expired"
-        except jwt.InvalidTokenError as e:
-            return False, None, f"Invalid token: {str(e)}"
         except Exception as e:
-            return False, None, f"Authentication error: {str(e)}"
+            logger.error(f"Authentication error: {e}", exc_info=True)
+            return False, None, "Authentication error"
     
     def _create_access_token(self, data: dict) -> str:
         expire = datetime.utcnow() + timedelta(minutes=self.config.ACCESS_TOKEN_EXPIRE_MINUTES)
         data.update({"exp": expire})
         return jwt.encode(data, self.config.JWT_SECRET_KEY, algorithm=self.config.JWT_ALGORITHM)
+    
+    async def _send_verification_email_async(self, user: UserModel):
+        try:
+            await self.email_service.send_verification(user.email, user.username)
+        except Exception as e:
+            logger.error(f"Failed to send verification email to {user.email}: {e}")
+
+    async def _fake_verify_password(self, password: str):
+        # Blind SQLi
+        salt = bcrypt.gensalt()
+        bcrypt.hashpw(password.encode('utf-8'), salt)
+
+    async def logout(self, user_id: int, token: str) -> bool:
+        try:
+            expire_seconds = self.config.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            await self.redis_service.blacklist_token(token, expire_seconds)
+            
+            await self.redis_service.delete_user_token(user_id)
+            
+            logger.info(f"User {user_id} logged out successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Logout failed for user {user_id}: {e}")
+            return False
+        
+    async def logout_all_devices(self, user_id: int) -> bool:
+        try:
+            await self.redis_service.delete_all_user_sessions(user_id)
+            await self.redis_service.delete_user_token(user_id)
+            
+            logger.info(f"All sessions terminated for user {user_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to terminate all sessions for user {user_id}: {e}")
+            return False
