@@ -184,3 +184,9 @@ class RedisService:
             await self.redis.expire(lock_key, timeout)
             return True
         return False
+    
+    async def info(self, section: str = None) -> dict:
+        await self._ensure_connection()
+        if section:
+            return await self.redis.info(section)
+        return await self.redis.info()
