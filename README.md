@@ -206,8 +206,8 @@ class ScriptScheduler:
 | Container Logs |	kubectl logs |	Centralized pod logging
 | Metrics |	Prometheus (planned) |	System metrics collection
 
-### 📊 Database Schema
-Users Table
+## 📊 Database Schema
+### Users Table
 ```sql
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -217,7 +217,7 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
-Scripts Table
+### Scripts Table
 ```sql
 CREATE TABLE scripts (
     id SERIAL PRIMARY KEY,
@@ -232,7 +232,7 @@ CREATE TABLE scripts (
     last_run_at TIMESTAMP
 );
 ```
-Executions Table
+### Executions Table
 ```sql
 CREATE TABLE executions (
     id SERIAL PRIMARY KEY,
@@ -245,8 +245,8 @@ CREATE TABLE executions (
     finished_at TIMESTAMP
 );
 ```
-🔧 Core Features
-Script Management System
+## 🔧 Core Features
+### Script Management System
 ```python
 # Script execution with isolation
 async def _execute_script(self, script: Script, execution_id: int):
@@ -266,7 +266,7 @@ async def _execute_script(self, script: Script, execution_id: int):
             timeout=30  # Configurable timeout
         )
 ```
-## Scheduling Capabilities
+### Scheduling Capabilities
 - Cron Expressions – Standard 5-field cron syntax (*/5 * * * *)
 
 - Interval Scheduling – Human-readable intervals (30s, 5m, 2h)
@@ -275,7 +275,7 @@ async def _execute_script(self, script: Script, execution_id: int):
 
 - Next Run Calculation – Automatic next execution time computation
 
-## Redis-Powered Features
+### Redis-Powered Features
 ```python
 class RedisService:
     async def store_user_token(self, user_id: int, token: str, expire_seconds: int)
@@ -284,7 +284,7 @@ class RedisService:
     async def cache_get(self, key: str) -> Optional[Any]
     async def cache_set(self, key: str, value: Any, expire_seconds: int)
 ```
-## Email Service Integration
+### Email Service Integration
 - SMTP Support – Gmail, SendGrid, custom SMTP servers
 
 - TLS Encryption – Secure email transmission
