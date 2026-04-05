@@ -22,6 +22,69 @@ Lead Architect: **Finimen Sniper** | Contact: finimensniper@gmail.com
 
 ---
 
+## ☸️ Kubernetes Orchestration
+### What Kubernetes Gives AutoCloud
+- Capability	Benefit for AutoCloud
+- High Availability	2+ replicas of API – if one pod fails, others continue
+- Self-Healing	Automatic restart of failed containers
+- Horizontal Scaling	Scale from 1 to 100+ replicas instantly
+- Zero-Downtime Updates	Rolling updates without user interruption
+- Service Discovery	Internal DNS for PostgreSQL, Redis, API
+- Health Checks	Automatic liveness/readiness probes
+- Secret Management	Secure injection of JWT keys, DB passwords
+- Persistent Storage	StatefulSet with PVC for PostgreSQL data
+
+---
+
+## Kubernetes Architecture
+```yaml
+┌─────────────────────────────────────────────────────────────┐
+│                      Ingress Controller                      │
+│                    (Nginx / Traefik / AWS ALB)               │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                ┌─────────────┴─────────────┐
+                │                           │
+        ┌───────▼───────┐           ┌───────▼───────┐
+        │  API Gateway  │           │  Static Files │
+        │  (Service)    │           │  (Service)    │
+        └───────┬───────┘           └───────────────┘
+                │
+    ┌───────────┼───────────┬───────────────┐
+    │           │           │               │
+┌───▼───┐   ┌───▼───┐   ┌───▼───┐       ┌───▼───┐
+│ App   │   │ App   │   │ App   │  ...  │ App   │
+│ Pod 1 │   │ Pod 2 │   │ Pod 3 │       │ Pod N │
+└───┬───┘   └───┬───┘   └───┬───┘       └───┬───┘
+    │           │           │               │
+    └───────────┼───────────┴───────────────┘
+                │
+        ┌───────▼───────┐         ┌───────────────┐
+        │    Redis      │         │  PostgreSQL   │
+        │  (StatefulSet)│         │ (StatefulSet) │
+        └───────────────┘         └───────────────┘
+```
+## Production Deployment Commands
+```bash
+# Deploy to Kubernetes
+kubectl create namespace autocloud
+kubectl apply -f k8s/
+
+# Check deployment status
+kubectl get pods -n autocloud -w
+
+# Scale manually
+kubectl scale -n autocloud deployment/autocloud-api --replicas=5
+
+# Zero-downtime update
+kubectl set image -n autocloud deployment/autocloud-api autocloud=autocloud:v2
+
+# Rollback if needed
+kubectl rollout undo -n autocloud deployment/autocloud-api
+```
+
+---
+
 ## 🛡️ Core Security Architecture
 ### Multi-Layer Security Framework
 ```python
@@ -78,7 +141,7 @@ app.add_middleware(SessionMiddleware)   # Redis session management
 │                    Infrastructure Layer                      │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
 │  │PostgreSQL│  │  SQLite  │  │  Redis   │  │  SMTP    │   │
-│  │(AsyncIO) │  │(Dev)     │  │ (Cache)  │  │ (Email)  │   │
+│  │(AsyncIO) │  │  (Dev)   │  │ (Cache)  │  │ (Email)  │   │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -134,11 +197,15 @@ class ScriptScheduler:
             await asyncio.sleep(1)
 ```
 ## Production Monitoring
-### Component	Tool	Purpose
-- Logging	Python logging + structlog	Structured JSON logging
-- Health Checks	Custom endpoints	Liveness/readiness probes
-- Error Tracking	Exception logging	Stack trace capture
-- Performance	Duration tracking	Execution time metrics
+| Component | Tool                      | Purpose                           |
+|--------|-------------------------------|---------------------------------------|
+| Logging |	Python logging + structlog |	Structured JSON logging
+| Health Checks |	Custom endpoints |	Liveness/readiness probes
+| Error Tracking |	Exception logging |	Stack trace capture
+| Performance |	Duration tracking |	Execution time metrics
+| Container Logs |	kubectl logs |	Centralized pod logging
+| Metrics |	Prometheus (planned) |	System metrics collection
+
 ### 📊 Database Schema
 Users Table
 ```sql
@@ -258,6 +325,44 @@ class RedisService:
 | GET    |	/scripts/executions/all	| Get all user executions |	Bearer
 
 </div>
+
+## 📊 Kubernetes Logging & Monitoring
+### Viewing Logs Across Pods
+```bash
+# All API pods logs
+kubectl logs -n autocloud -l tier=api --tail=100
+
+# Stream logs in real-time
+kubectl logs -f -n autocloud -l tier=api
+
+# PostgreSQL logs
+kubectl logs -n autocloud autocloud-postgres-0
+
+# Redis logs
+kubectl logs -n autocloud -l tier=redis
+
+# Previous container logs (if crashed)
+kubectl logs -n autocloud -l tier=api --previous
+```
+### Health Check Endpoints
+```python
+# Kubernetes liveness/readiness probes
+GET /health/live   # Is pod alive?
+GET /health/ready  # Is pod ready to serve traffic?
+GET /health        # Full system health (DB + Redis + Scheduler)
+```
+### Monitoring Commands
+```bash
+# Resource usage
+kubectl top pods -n autocloud
+kubectl top nodes
+
+# Pod status with details
+kubectl describe pods -n autocloud
+
+# Events in namespace
+kubectl get events -n autocloud --sort-by='.lastTimestamp'
+```
 
 ---
 
