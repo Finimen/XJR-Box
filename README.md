@@ -343,20 +343,23 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 ## 📈 Performance Characteristics
 ### Benchmark Results
-Metric	Value	Condition
-API Response Time	< 50ms	P95, 100 concurrent
-Script Execution Overhead	< 100ms	Python script startup
-Database Query Time	< 10ms	Indexed queries
-Redis Operation	< 2ms	Local network
-Concurrent Users	1000+	Per instance
-Scalability Features
-Stateless Authentication – JWT with Redis session store
 
-Connection Pooling – Database connection reuse
+| Metric | Value                      | Condition                           |
+|--------|-----------------------------|----------------------------------|
+API Response Time	| < 50ms	|P95, 100 concurrent
+Script Execution Overhead	 | < 100ms |	Python script startup
+Database Query Time |	< 10ms	| Indexed queries
+Redis Operation	| < 2ms |	Local network
+Concurrent Users |	1000+	| Per instance
 
-Async Everything – Non-blocking I/O operations
+## Scalability Features
+- Stateless Authentication – JWT with Redis session store
 
-Horizontal Scaling Ready – Stateless application design
+- Connection Pooling – Database connection reuse
+
+- Async Everything – Non-blocking I/O operations
+
+- Horizontal Scaling Ready – Stateless application design
 
 ## Resource Usage
 - Component	Memory	CPU	Notes
