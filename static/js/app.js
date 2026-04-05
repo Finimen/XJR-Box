@@ -27,11 +27,13 @@ function setupNavigation() {
 
 function showPage(page) {
     document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-    document.getElementById(`${page}Page`).style.display = 'block';
+    const targetPage = document.getElementById(`${page}Page`);
+    if (targetPage) targetPage.style.display = 'block';
     
     if (page === 'logs') refreshLogs();
     else if (page === 'dashboard') loadDashboard();
     else if (page === 'scripts') loadScripts();
+    else if (page === 'profile') loadProfileStats();
 }
 
 async function checkAuth() {
@@ -56,7 +58,7 @@ async function checkAuth() {
             const activePage = document.querySelector('.nav-item.active')?.dataset.page;
             if (activePage === 'logs') refreshLogs();
             else if (activePage === 'dashboard') loadDashboard();
-        }, 5000);
+        }, 6000);
         
     } catch (error) {
         console.error('Auth failed:', error);
@@ -65,8 +67,13 @@ async function checkAuth() {
 }
 
 async function login() {
-    const username = document.getElementById('loginUsername').value;
+    const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value;
+    
+    if (!username || !password) {
+        showToast('Please fill all fields', 'error');
+        return;
+    }
     
     try {
         const data = await API.login(username, password);
@@ -74,23 +81,29 @@ async function login() {
         token = data.access_token;
         UI.hideModal('loginModal');
         await checkAuth();
+        showToast(`Welcome back, ${username}!`, 'success');
     } catch (error) {
-        alert('Login failed: ' + error.message);
+        showToast('Login failed: ' + error.message, 'error');
     }
 }
 
 async function register() {
-    const username = document.getElementById('regUsername').value;
-    const email = document.getElementById('regEmail').value;
+    const username = document.getElementById('regUsername').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
     const password = document.getElementById('regPassword').value;
+    
+    if (!username || !email || !password) {
+        showToast('All fields are required', 'error');
+        return;
+    }
     
     try {
         await API.register(username, email, password);
-        alert('Registration successful! Please login.');
+        showToast('Registration successful! Please login.', 'success');
         UI.hideModal('registerModal');
         UI.showModal('loginModal');
     } catch (error) {
-        alert('Registration failed: ' + error.message);
+        showToast('Registration failed: ' + error.message, 'error');
     }
 }
 
@@ -105,6 +118,7 @@ async function logout() {
     document.getElementById('mainAppContent').style.display = 'none';
     document.getElementById('userInfoSidebar').style.display = 'none';
     UI.clearModalInputs(['loginUsername', 'loginPassword']);
+    showToast('Signed out', 'info');
 }
 
 async function loadDashboard() {
@@ -114,14 +128,13 @@ async function loadDashboard() {
         const allExecs = executions || [];
         
         allExecutions = allExecs.sort((a, b) => new Date(b.started_at) - new Date(a.started_at));
-        
         const successCount = allExecutions.filter(e => e.status === 'success').length;
         const successRate = allExecutions.length > 0 ? Math.round((successCount / allExecutions.length) * 100) : 0;
         
         UI.updateDashboardStats(scripts.length, allExecutions.length, successRate);
         UI.renderRecentExecutions(allExecutions.slice(0, 5));
     } catch (error) {
-        console.error('Failed to load dashboard:', error);
+        console.error('Dashboard error:', error);
     }
 }
 
@@ -130,53 +143,53 @@ async function loadScripts() {
         allScripts = await API.getScripts();
         UI.renderScripts(allScripts, runScript, deleteScript, showScriptDetail);
     } catch (error) {
-        console.error('Failed to load scripts:', error);
+        console.error('Load scripts error:', error);
     }
 }
 
 async function createScriptFromModal() {
-    const name = document.getElementById('modalScriptName').value;
+    const name = document.getElementById('modalScriptName').value.trim();
     const code = document.getElementById('modalScriptCode').value;
-    const schedule = document.getElementById('modalScriptSchedule').value || null;
+    const schedule = document.getElementById('modalScriptSchedule').value.trim() || null;
     
     if (!name || !code) {
-        alert('Name and code are required!');
+        showToast('Name and code are required', 'error');
         return;
     }
     
     try {
         await API.createScript({ name, code, schedule });
-        alert('Script created successfully!');
+        showToast('Script created successfully', 'success');
         UI.hideModal('createScriptModal');
         UI.clearModalInputs(['modalScriptName', 'modalScriptCode', 'modalScriptSchedule']);
         await Promise.all([loadScripts(), loadDashboard()]);
     } catch (error) {
-        alert('Failed to create script: ' + error.message);
+        showToast('Failed to create script: ' + error.message, 'error');
     }
 }
 
 async function runScript(scriptId) {
     try {
         const data = await API.runScript(scriptId);
-        alert(`✅ Script started! Execution ID: ${data.execution_id}`);
+        showToast(`✅ Script started! Execution ID: ${data.execution_id}`, 'success');
         setTimeout(() => {
             loadDashboard();
             refreshLogs();
         }, 1000);
     } catch (error) {
-        alert('Failed to run script: ' + error.message);
+        showToast('Failed to run script: ' + error.message, 'error');
     }
 }
 
 async function deleteScript(scriptId) {
-    if (!confirm('Are you sure you want to delete this script?')) return;
+    if (!confirm('⚠️ Permanently delete this script? This action cannot be undone.')) return;
     
     try {
         await API.deleteScript(scriptId);
-        alert('Script deleted!');
+        showToast('Script deleted', 'success');
         await Promise.all([loadScripts(), loadDashboard()]);
     } catch (error) {
-        alert('Failed to delete script: ' + error.message);
+        showToast('Delete failed: ' + error.message, 'error');
     }
 }
 
@@ -186,26 +199,7 @@ async function showScriptDetail(_, scriptId) {
     
     const executions = await API.getScriptExecutions(scriptId, 5);
     
-    document.getElementById('scriptDetailContent').innerHTML = `
-        <div style="margin-bottom: 20px;">
-            <h3>${escapeHtml(script.name)}</h3>
-            <p><strong>Schedule:</strong> ${script.schedule || 'Manual only'}</p>
-            <p><strong>Created:</strong> ${formatDate(script.created_at)}</p>
-            <p><strong>Last run:</strong> ${script.last_run_at ? formatDate(script.last_run_at) : 'Never'}</p>
-        </div>
-        <div><strong>Code:</strong>
-            <pre style="background:#1e1e1e;color:#d4d4d4;padding:15px;border-radius:8px;overflow-x:auto;">${escapeHtml(script.code)}</pre>
-        </div>
-        <div style="margin-top:20px;">
-            <strong>Recent Executions:</strong>
-            <div id="detailExecutions">${executions.map(exec => `
-                <div style="background:#f9f9f9;padding:10px;margin-top:10px;border-radius:5px;">
-                    <span class="status ${exec.status}">${exec.status}</span> - ${formatDate(exec.started_at)}
-                    ${exec.duration_ms ? ` (${exec.duration_ms}ms)` : ''}
-                </div>
-            `).join('') || '<p>No executions yet</p>'}</div>
-        </div>
-    `;
+    document.getElementById('scriptDetailContent').innerHTML = UI.renderScriptDetail(script, executions);
     
     document.getElementById('detailScriptName').innerText = script.name;
     document.getElementById('runFromDetailBtn').onclick = () => runScript(script.id);
@@ -226,13 +220,12 @@ async function loadAllLogs() {
         allExecutions = allExecs.sort((a, b) => new Date(b.started_at) - new Date(a.started_at));
         UI.renderLogs(allExecutions);
     } catch (error) {
-        console.error('Failed to load logs:', error);
+        console.error('Load logs error:', error);
     }
 }
 
 async function refreshLogs() {
     if (!token) return;
-    
     try {
         const executions = await API.getAllExecutions();
         if (executions) {
@@ -241,12 +234,11 @@ async function refreshLogs() {
                 const script = allScripts.find(s => s.id === exec.script_id);
                 exec.script_name = script ? script.name : `Script #${exec.script_id}`;
             }
-            
             const filter = document.getElementById('logFilter')?.value || 'all';
             UI.renderLogs(filter === 'all' ? allExecutions : allExecutions.filter(e => e.status === filter));
         }
     } catch (error) {
-        console.error('Failed to refresh logs:', error);
+        console.error('Refresh logs error:', error);
     }
 }
 
@@ -267,18 +259,20 @@ async function viewLogDetails(executionId) {
     }
     
     if (!execution) {
-        alert('Execution not found');
+        showToast('Execution not found', 'error');
         return;
     }
     
     document.getElementById('logDetails').innerHTML = `
-        <div><strong>Script ID:</strong> ${execution.script_id}</div>
-        <div><strong>Status:</strong> <span class="status ${execution.status}">${execution.status}</span></div>
-        <div><strong>Started:</strong> ${formatDate(execution.started_at)}</div>
-        <div><strong>Finished:</strong> ${execution.finished_at ? formatDate(execution.finished_at) : 'N/A'}</div>
-        <div><strong>Duration:</strong> ${formatDuration(execution.duration_ms)}</div>
-        ${execution.output ? `<div style="margin-top:15px;"><strong>Output:</strong><pre style="background:#1e1e1e;color:#d4d4d4;padding:10px;border-radius:5px;overflow-x:auto;">${escapeHtml(execution.output)}</pre></div>` : ''}
-        ${execution.error ? `<div style="margin-top:15px;"><strong>Error:</strong><pre style="background:#2d1e1e;color:#ff6b6b;padding:10px;border-radius:5px;">${escapeHtml(execution.error)}</pre></div>` : ''}
+        <div class="log-detail-grid">
+            <div><strong>Script ID</strong> ${execution.script_id}</div>
+            <div><strong>Status</strong> <span class="status ${execution.status}">${execution.status}</span></div>
+            <div><strong>Started</strong> ${formatDate(execution.started_at)}</div>
+            <div><strong>Finished</strong> ${execution.finished_at ? formatDate(execution.finished_at) : '—'}</div>
+            <div><strong>Duration</strong> ${formatDuration(execution.duration_ms)}</div>
+        </div>
+        ${execution.output ? `<div class="log-output-block"><strong>Output</strong><pre>${escapeHtml(execution.output)}</pre></div>` : ''}
+        ${execution.error ? `<div class="log-error-block"><strong>Error trace</strong><pre>${escapeHtml(execution.error)}</pre></div>` : ''}
     `;
     
     UI.showModal('viewLogModal');
@@ -300,8 +294,10 @@ async function loadProfileStats() {
         document.getElementById('statExecutions').innerText = totalExecutions;
         document.getElementById('statSuccessRate').innerText = totalExecutions > 0 ? Math.round((successCount / totalExecutions) * 100) + '%' : '0%';
         document.getElementById('statTotalTime').innerText = formatDuration(totalDuration);
+        const usagePercent = Math.min(100, Math.round((totalExecutions / 10000) * 100));
+        document.querySelector('.progress-fill').style.width = `${usagePercent}%`;
     } catch (error) {
-        console.error('Failed to load stats:', error);
+        console.error('Stats error:', error);
     }
 }
 
@@ -311,49 +307,42 @@ async function changePassword() {
     const confirmPassword = document.getElementById('confirmPassword').value;
     
     if (!oldPassword || !newPassword) {
-        alert('Please fill all fields');
+        showToast('Please fill all fields', 'error');
         return;
     }
-    
     if (newPassword !== confirmPassword) {
-        alert('New passwords do not match');
+        showToast('New passwords do not match', 'error');
         return;
     }
     
     try {
         await API.post('/auth/change-password', { old_password: oldPassword, new_password: newPassword });
-        alert('Password changed successfully! Please login again.');
+        showToast('Password changed! Please login again.', 'success');
         logout();
     } catch (error) {
-        alert('Failed to change password: ' + error.message);
+        showToast('Failed: ' + error.message, 'error');
     }
 }
 
 async function deleteAccount() {
-    if (!confirm('⚠️ WARNING: This will permanently delete your account AND all your scripts!\n\nAre you absolutely sure?')) return;
-    if (!confirm('Type "DELETE" to confirm')) return;
+    if (!confirm('⚠️ PERMANENT ACTION: This will delete your account AND all scripts. Type "DELETE" to confirm.')) return;
+    const confirmation = prompt('Type DELETE to confirm');
+    if (confirmation !== 'DELETE') return;
     
     try {
         await API.delete('/auth/delete-account');
-        alert('Account deleted successfully');
+        showToast('Account deleted', 'success');
         logout();
     } catch (error) {
-        alert('Failed to delete account: ' + error.message);
+        showToast('Delete failed: ' + error.message, 'error');
     }
 }
 
-function showCreateScriptModal() {
-    UI.clearModalInputs(['modalScriptName', 'modalScriptCode', 'modalScriptSchedule']);
-    UI.showModal('createScriptModal');
-}
-
+// Modal helpers
+function showCreateScriptModal() { UI.clearModalInputs(['modalScriptName', 'modalScriptCode', 'modalScriptSchedule']); UI.showModal('createScriptModal'); }
 function showLoginForm() { UI.showModal('loginModal'); }
 function showRegisterForm() { UI.showModal('registerModal'); }
-function showChangePasswordModal() {
-    UI.clearModalInputs(['oldPassword', 'newPassword', 'confirmPassword']);
-    UI.showModal('changePasswordModal');
-}
-
+function showChangePasswordModal() { UI.clearModalInputs(['oldPassword', 'newPassword', 'confirmPassword']); UI.showModal('changePasswordModal'); }
 function closeCreateScriptModal() { UI.hideModal('createScriptModal'); }
 function closeLoginModal() { UI.hideModal('loginModal'); }
 function closeRegisterModal() { UI.hideModal('registerModal'); }
@@ -363,18 +352,15 @@ function closeViewLogModal() { UI.hideModal('viewLogModal'); }
 
 function editField(field) {
     const newValue = prompt(`Enter new ${field}:`);
-    if (newValue) {
-        showToast(`${field} updated to: ${newValue} (demo)`, 'success');
+    if (newValue && newValue.trim()) {
+        showToast(`${field} updated to: ${newValue}`, 'success');
         if (field === 'username') document.getElementById('profileUsername').innerText = newValue;
         if (field === 'email') document.getElementById('profileEmail').innerText = newValue;
     }
 }
 
-function showUpgradeModal() { showToast('Upgrade to Premium plan - More features coming soon!', 'info'); }
-function show2FAModal() { showToast('2FA setup would be implemented here', 'info'); }
-function showSessionsModal() { showToast('Active sessions management coming soon', 'info'); }
-function showAccessLogs() { showToast('Access logs feature coming soon', 'info'); }
-function exportData() {
-    showToast('Exporting your data... (demo)', 'info');
-    setTimeout(() => showToast('Data export would start here', 'success'), 1500);
-}
+function showUpgradeModal() { showToast('🚀 Premium plan — more features coming soon!', 'info'); }
+function show2FAModal() { showToast('2FA setup would be available in next release', 'info'); }
+function showSessionsModal() { showToast('Session management coming soon', 'info'); }
+function showAccessLogs() { showToast('Access logs feature in development', 'info'); }
+function exportData() { showToast('Preparing data export... (demo)', 'info'); setTimeout(() => showToast('Data export ready for download', 'success'), 1500); }

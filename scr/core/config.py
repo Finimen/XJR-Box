@@ -8,7 +8,12 @@ class Settings(BaseSettings):
     PORT: int = 8000
     HOST: str = "0.0.0.0"
     
-    DATABASE_URL: str = "sqlite+aiosqlite:///./piano.db"
+    DATABASE_URL: str = Field(
+        default="postgresql+asyncpg://autocloud:autocloud123@localhost:5432/autocloud",
+        description="Production: postgresql+asyncpg://user:pass@host:5432/db"
+    )
+
+    USE_SQLITE_FOR_DEV: bool = Field(default=True, description="Use SQLite in dev mode")
     
     JWT_SECRET_KEY: str = Field(default="change-this-in-production-32bytes!", min_length=32)
     JWT_ALGORITHM: str = "HS256"
@@ -20,8 +25,8 @@ class Settings(BaseSettings):
 
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
-    SMTP_USERNAME: str = "soldathekler@gmail.com"
-    SMTP_PASSWORD: str = "jotx qdgi wcjy tjda"
+    SMTP_USERNAME: str = "REDACTED"
+    SMTP_PASSWORD: str = "REDACTED"
     SMTP_FROM_EMAIL: str = "Piano jjk site <soldathekler@gmail.com>"
     SMTP_USE_TLS: bool = True
 

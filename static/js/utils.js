@@ -6,78 +6,91 @@ function escapeHtml(text) {
 }
 
 function formatDate(dateString) {
-    return new Date(dateString).toLocaleString();
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+    });
 }
 
 function formatDuration(ms) {
-    if (!ms) return 'N/A';
-    if (ms < 1000) return `${ms} ms`;
-    const seconds = Math.floor(ms / 1000);
-    if (seconds < 60) return `${seconds} sec`;
-    const minutes = Math.floor(seconds / 60);
-    return `${minutes} min ${seconds % 60} sec`;
+    if (!ms) return '—';
+    if (ms < 1000) return `${ms}ms`;
+    const sec = Math.floor(ms / 1000);
+    if (sec < 60) return `${sec}s`;
+    const min = Math.floor(sec / 60);
+    return `${min}m ${sec % 60}s`;
 }
 
 function showToast(message, type = 'info') {
+    const existingToasts = document.querySelectorAll('.toast');
+    existingToasts.forEach(t => t.remove());
+    
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `
         <div class="toast-content">
-            <span class="material-icons">${type === 'success' ? 'check_circle' : 'info'}</span>
-            <span>${message}</span>
+            <span class="material-icons">${type === 'success' ? 'check_circle' : type === 'error' ? 'error' : 'info'}</span>
+            <span>${escapeHtml(message)}</span>
         </div>
     `;
     document.body.appendChild(toast);
-    
     setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, 3500);
 }
 
 function loadSettings() {
     const settings = JSON.parse(localStorage.getItem('user_settings') || '{}');
-    if (document.getElementById('emailNotifications')) {
-        document.getElementById('emailNotifications').checked = settings.email_notifications || false;
-        document.getElementById('successAlerts').checked = settings.success_alerts !== false;
-        document.getElementById('failureAlerts').checked = settings.failure_alerts !== false;
-        document.getElementById('dailyDigest').checked = settings.daily_digest || false;
-        document.getElementById('maxConcurrent').value = settings.max_concurrent || '3';
-        document.getElementById('defaultTimeout').value = settings.default_timeout || '30';
-        document.getElementById('pythonVersion').value = settings.python_version || '3.11';
-        document.getElementById('logRetention').value = settings.log_retention || '30';
-        if (document.getElementById('webhookUrl')) {
-            document.getElementById('webhookUrl').value = settings.webhook_url || '';
+    const checkboxes = ['emailNotifications', 'successAlerts', 'failureAlerts', 'dailyDigest'];
+    checkboxes.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            const key = id === 'emailNotifications' ? 'email_notifications' :
+                        id === 'successAlerts' ? 'success_alerts' :
+                        id === 'failureAlerts' ? 'failure_alerts' : 'daily_digest';
+            el.checked = settings[key] !== undefined ? settings[key] : (id === 'successAlerts' || id === 'failureAlerts');
         }
-    }
+    });
+    const selects = ['maxConcurrent', 'defaultTimeout', 'pythonVersion', 'logRetention'];
+    selects.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && settings[id.replace(/([A-Z])/g, '_$1').toLowerCase()]) {
+            el.value = settings[id.replace(/([A-Z])/g, '_$1').toLowerCase()];
+        }
+    });
+    const webhook = document.getElementById('webhookUrl');
+    if (webhook && settings.webhook_url) webhook.value = settings.webhook_url;
 }
 
 function saveSetting(key, value) {
     const settings = JSON.parse(localStorage.getItem('user_settings') || '{}');
     settings[key] = value;
     localStorage.setItem('user_settings', JSON.stringify(settings));
-    showToast(`${key.replace('_', ' ')} saved!`, 'success');
+    showToast(`${key.replace(/_/g, ' ')} updated`, 'success');
 }
 
 function saveWebhook() {
     const url = document.getElementById('webhookUrl')?.value;
     if (url) saveSetting('webhook_url', url);
+    else showToast('Enter a valid URL', 'error');
 }
 
 function copyApiKey() {
-    const apiKey = document.getElementById('apiKey')?.innerText;
-    if (apiKey) {
-        navigator.clipboard.writeText(apiKey);
-        showToast('API Key copied!', 'success');
+    const keySpan = document.getElementById('apiKey');
+    if (keySpan) {
+        navigator.clipboard.writeText(keySpan.innerText);
+        showToast('API Key copied', 'success');
     }
 }
 
 function rotateApiKey() {
-    const newKey = 'sk_live_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const newKey = 'sk_live_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 10);
     if (document.getElementById('apiKey')) {
         document.getElementById('apiKey').innerText = newKey;
         saveSetting('api_key', newKey);
-        showToast('New API key generated!', 'success');
+        showToast('New API key generated', 'success');
     }
 }

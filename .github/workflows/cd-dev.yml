@@ -1,0 +1,36 @@
+name: CD - Deploy to Development
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  deploy-dev:
+    name: Deploy to K8s Dev
+    runs-on: ubuntu-latest
+    environment: development
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v4
+    
+    - name: Set up kubeconfig
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG_DEV }}" | base64 --decode > ~/.kube/config
+    
+    - name: Deploy to Kubernetes
+      run: |
+        # Update image tag
+        kubectl set image -n autocloud-dev deployment/autocloud-api \
+          autocloud=ghcr.io/${{ github.repository }}/autocloud:${{ github.sha }}
+        
+        # Wait for rollout
+        kubectl rollout status -n autocloud-dev deployment/autocloud-api --timeout=5m
+    
+    - name: Verify deployment
+      run: |
+        kubectl get pods -n autocloud-dev
+        kubectl get svc -n autocloud-dev

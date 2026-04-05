@@ -1,0 +1,43 @@
+name: CD - Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  deploy-prod:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v4
+    
+    - name: Set up kubeconfig
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG_PROD }}" | base64 --decode > ~/.kube/config
+    
+    - name: Deploy with rolling update
+      run: |
+        # Update image
+        kubectl set image -n autocloud-prod deployment/autocloud-api \
+          autocloud=ghcr.io/${{ github.repository }}/autocloud:${{ github.sha }}
+        
+        # Monitor rollout
+        kubectl rollout status -n autocloud-prod deployment/autocloud-api
+    
+    - name: Run database migrations
+      run: |
+        kubectl exec -n autocloud-prod deployment/autocloud-api -- \
+          poetry run alembic upgrade head
+    
+    - name: Health check
+      run: |
+        kubectl port-forward -n autocloud-prod svc/autocloud-api 8000:8000 &
+        sleep 5
+        curl --fail http://localhost:8000/health || exit 1
