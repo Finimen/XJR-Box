@@ -54,7 +54,7 @@ app.add_middleware(SessionMiddleware)   # Redis session management
 - Connection Pooling – Async database connection management
 
 ## 🏗️ System Architecture
-Clean Architecture Pattern
+### Clean Architecture Pattern
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │                      Presentation Layer                      │
@@ -82,7 +82,7 @@ Clean Architecture Pattern
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘   │
 └─────────────────────────────────────────────────────────────┘
 ```
-## Dependency Injection Pattern
+### Dependency Injection Pattern
 ```python
 # DI Container with singleton management
 async def get_auth_service(
