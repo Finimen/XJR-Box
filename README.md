@@ -18,7 +18,7 @@ AutoCloud is a sophisticated, enterprise-grade automation platform that enables 
 
 Lead Architect: Finimen Sniper | Contact: finimensniper@gmail.com
 
-*Copyright © 2025 Finimen Sniper / FSC. All rights reserved.*
+*Copyright © 2026 Finimen Sniper / FSC. All rights reserved.*
 
 ---
 
