@@ -39,8 +39,8 @@ Lead Architect: **Finimen Sniper** | Contact: finimensniper@gmail.com
 ## Kubernetes Architecture
 ```yaml
 ┌─────────────────────────────────────────────────────────────┐
-│                      Ingress Controller                      │
-│                    (Nginx / Traefik / AWS ALB)               │
+│                      Ingress Controller                     │
+│                    (Nginx / Traefik / AWS ALB)              │
 └─────────────────────────────────────────────────────────────┘
                               │
                 ┌─────────────┴─────────────┐
