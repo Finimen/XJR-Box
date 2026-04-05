@@ -2,10 +2,9 @@
   
 # AutoCloud Platform
 ## Enterprise-Grade Script Automation & Execution Engine
-### Status: ✅ Production Ready | License: Proprietary | Version: 2.0.0 | Platform: Cross-Platform
 ![Status](https://img.shields.io/badge/Status-Active-success)
 ![License](https://img.shields.io/badge/License-Proprietary-red)
-![Version](https://img.shields.io/badge/Version-0.14B-blue)
+![Version](https://img.shields.io/badge/Version-0.06-blue)
 ![Platform](https://img.shields.io/badge/Platform-Web_Mobile_Desktop-informational)
 
 </div>
@@ -19,7 +18,7 @@ AutoCloud is a sophisticated, enterprise-grade automation platform that enables 
 
 Lead Architect: Finimen Sniper | Contact: finimensniper@gmail.com
 
-Copyright © 2025 Finimen Sniper / FSC. All rights reserved.
+*Copyright © 2025 Finimen Sniper / FSC. All rights reserved.*
 
 ---
 
@@ -228,24 +227,37 @@ class RedisService:
 - Async Delivery – Non-blocking email sending
 
 ## 📡 API Specification
+
+<div align="center">
+
 ### Authentication Endpoints
-Method	Endpoint	Description	Security
-POST	/auth/register	User registration	Public
-POST	/auth/login	JWT token issuance	Public
-POST	/auth/logout	Token revocation	Bearer
-GET	/auth/me	Get current user info	Bearer
-Script Management Endpoints
-Method	Endpoint	Description	Security
-POST	/scripts/	Create new script	Bearer
-GET	/scripts/	List user's scripts	Bearer
-GET	/scripts/{id}	Get script details	Bearer
-PUT	/scripts/{id}	Update script	Bearer
-DELETE	/scripts/{id}	Delete script	Bearer
-POST	/scripts/{id}/run	Execute script immediately	Bearer
-Execution Management Endpoints
-Method	Endpoint	Description	Security
-GET	/scripts/{id}/executions	Get script executions	Bearer
-GET	/scripts/executions/all	Get all user executions	Bearer
+
+| Method | Endpoint                      | Description                           | Security |
+|--------|-------------------------------|---------------------------------------|----------|
+| POST   |	/auth/register	| User registration	| Public
+| POST   |	/auth/login	| JWT token issuance	| Public
+| POST   |	/auth/logout	| Token revocation | Bearer
+| GET   |	/auth/me	| Get current user info |	Bearer
+
+### Script Management Endpoints
+
+| Method | Endpoint                      | Description                           | Security |
+|--------|-------------------------------|---------------------------------------|----------|
+| POST   |	/scripts/	| Create new script  |	Bearer
+| GET    |	/scripts/	| List user's scripts |	Bearer
+| GET    |	/scripts/{id}	| Get script details |	Bearer
+| PUT    |	/scripts/{id} |	Update script |	Bearer
+| DELETE |	/scripts/{id}	| Delete script |	Bearer
+| POST   |	/scripts/{id}/run	| Execute script immediately | 	Bearer
+
+### Execution Management Endpoints
+
+| Method | Endpoint                      | Description                           | Security |
+|--------|-------------------------------|---------------------------------------|----------|
+| GET    |	/scripts/{id}/executions |	Get script executions |	Bearer
+| GET    |	/scripts/executions/all	| Get all user executions |	Bearer
+
+</div>
 
 ---
 
