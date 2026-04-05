@@ -1,6 +1,6 @@
 <div align="center">
-  
-# AutoCloud Platform
+
+# XJR-BOX (AutoCloud Platform)
 ## Enterprise-Grade Script Automation & Execution Engine
 ![Status](https://img.shields.io/badge/Status-Active-success)
 ![License](https://img.shields.io/badge/License-Proprietary-red)
@@ -12,11 +12,11 @@
 ---
 
 ## 🚀 Overview
-AutoCloud is a sophisticated, enterprise-grade automation platform that enables users to create, schedule, and execute Python scripts in isolated, secure environments. Built with a distributed architecture and real-time scheduling engine, it provides a robust foundation for task automation, data processing, and workflow orchestration.
+**JXR-Box** is a sophisticated, enterprise-grade automation platform that enables users to create, schedule, and execute Python scripts in isolated, secure environments. Built with a distributed architecture and real-time scheduling engine, it provides a robust foundation for task automation, data processing, and workflow orchestration.
 
 ---
 
-Lead Architect: Finimen Sniper | Contact: finimensniper@gmail.com
+Lead Architect: **Finimen Sniper** | Contact: finimensniper@gmail.com
 
 *Copyright © 2026 Finimen Sniper / FSC. All rights reserved.*
 
